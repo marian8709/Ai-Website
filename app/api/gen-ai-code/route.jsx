@@ -10,16 +10,6 @@ export async function POST(req){
         const providerStatus = await checkProviderStatus();
         console.log('Provider status:', providerStatus);
         
-        // If no providers are available, return error immediately
-        if (!providerStatus.activeProvider) {
-            return NextResponse.json({
-                error: 'NO_PROVIDERS_AVAILABLE',
-                message: 'No AI providers are currently available. Please check your API keys.',
-                files: {},
-                provider: 'none'
-            });
-        }
-        
         // Select the appropriate code generation prompt based on environment
         let codeGenPrompt;
         switch (environment.toLowerCase()) {
@@ -39,9 +29,6 @@ export async function POST(req){
         const fullPrompt = `${prompt}\n\n${codeGenPrompt}`;
         const result = await GenAiCode.sendMessage(fullPrompt);
         let resp = result.response.text();
-        const usedProvider = result.provider || 'unknown';
-        
-        console.log(`Code generated using ${usedProvider} provider`);
         
         // Function to extract JSON from markdown code blocks
         function extractFromMarkdown(text) {
@@ -127,20 +114,6 @@ export async function POST(req){
         function fixJsonStructure(jsonStr) {
             let fixed = jsonStr.trim();
             
-            // Fix malformed content immediately after opening braces/brackets
-            fixed = fixed.replace(/(\{)\s*[,:;]+\s*/g, '$1');
-            fixed = fixed.replace(/(\[)\s*[,:;]+\s*/g, '$1');
-            
-            // Fix malformed content immediately before closing braces/brackets
-            fixed = fixed.replace(/\s*[,:;]+\s*(\})/g, '$1');
-            fixed = fixed.replace(/\s*[,:;]+\s*(\])/g, '$1');
-            
-            // Remove any duplicate commas
-            fixed = fixed.replace(/,\s*,+/g, ',');
-            
-            // Fix missing commas between properties (basic case)
-            fixed = fixed.replace(/"\s*"([^:])/g, '", "$1');
-            
             // Count opening and closing braces/brackets
             const openBraces = (fixed.match(/{/g) || []).length;
             const closeBraces = (fixed.match(/}/g) || []).length;
@@ -172,7 +145,7 @@ export async function POST(req){
                 files: {},
                 error: 'No valid JSON structure found in AI response',
                 rawResponse: resp.substring(0, 500) + '...',
-                provider: usedProvider
+                provider: providerStatus.activeProvider
             });
         }
         
@@ -202,37 +175,43 @@ export async function POST(req){
                     rawResponse: resp.substring(0, 500) + '...',
                     extractedJson: jsonContent.substring(0, 200) + '...',
                     parseError: parseError.message,
-                    provider: usedProvider
+                    provider: providerStatus.activeProvider
                 });
             }
         }
         
         // Add provider info to response
-        parsedResponse.provider = usedProvider;
+        parsedResponse.provider = providerStatus.activeProvider;
         
         return NextResponse.json(parsedResponse);
     } catch (e) {
         console.error('Code generation error:', e);
         
-        // Get the provider from the error if it's an AIProviderError
-        const errorProvider = e.provider || 'unknown';
-        
-        // Handle specific quota errors
-        if (e.message && (e.message.includes('429') || e.message.includes('quota') || e.message.includes('exceeded'))) {
+        // Handle specific Google AI API errors
+        if (e.message && e.message.includes('429')) {
             return NextResponse.json({ 
                 error: 'QUOTA_EXCEEDED',
-                message: `API quota exceeded for ${errorProvider}. ${errorProvider === 'gemini' ? 'Trying alternative provider...' : 'Please try again later.'}`,
-                details: errorProvider === 'gemini' 
-                    ? 'Gemini API quota exceeded. The system should automatically switch to DeepSeek.'
-                    : e.message,
+                message: 'Daily API quota exceeded. Please try again tomorrow or upgrade your plan.',
+                details: 'You have reached the daily limit of 50 requests for the Gemini API free tier.',
                 files: {},
                 quotaExceeded: true,
-                provider: errorProvider
+                provider: 'gemini'
+            });
+        }
+        
+        if (e.message && e.message.includes('quota')) {
+            return NextResponse.json({ 
+                error: 'QUOTA_EXCEEDED',
+                message: 'API quota exceeded. Please check your billing details or try again later.',
+                details: e.message,
+                files: {},
+                quotaExceeded: true,
+                provider: 'gemini'
             });
         }
         
         // Handle DeepSeek specific errors
-        if (errorProvider === 'deepseek' || (e.message && e.message.includes('DeepSeek'))) {
+        if (e.message && e.message.includes('DeepSeek')) {
             return NextResponse.json({ 
                 error: 'DEEPSEEK_ERROR',
                 message: 'DeepSeek API error occurred.',
@@ -242,21 +221,10 @@ export async function POST(req){
             });
         }
         
-        // Handle Gemini specific errors
-        if (errorProvider === 'gemini' || (e.message && e.message.includes('GoogleGenerativeAI'))) {
-            return NextResponse.json({ 
-                error: 'GEMINI_ERROR',
-                message: 'Gemini API error occurred. Switching to alternative provider...',
-                details: e.message,
-                files: {},
-                provider: 'gemini'
-            });
-        }
-        
         return NextResponse.json({ 
-            error: e.message || 'Unknown error occurred',
+            error: e.message,
             files: {},
-            provider: errorProvider
+            provider: 'unknown'
         });
     }
 }

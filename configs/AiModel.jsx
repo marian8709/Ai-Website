@@ -10,11 +10,11 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const deepseekApiKey = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY;
 
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+const genAI = new GoogleGenerativeAI(apiKey);
 
-const model = genAI ? genAI.getGenerativeModel({
+const model = genAI.getGenerativeModel({
     model: "gemini-2.0-flash-exp",
-}) : null;
+});
 
 const generationConfig = {
     temperature: 1,
@@ -40,120 +40,72 @@ const EnhancePromptConfig = {
     responseMimeType: "application/json",
 };
 
-// Custom error class to track provider information
-class AIProviderError extends Error {
-    constructor(message, provider, originalError = null) {
-        super(message);
-        this.name = 'AIProviderError';
-        this.provider = provider;
-        this.originalError = originalError;
-        this.isQuotaError = message.includes('429') || message.includes('quota') || message.includes('exceeded');
-    }
-}
-
 // DeepSeek API call function
 async function callDeepSeekAPI(prompt, isCodeGeneration = false) {
-    if (!deepseekApiKey || deepseekApiKey === 'your_deepseek_api_key_here') {
-        throw new AIProviderError('DeepSeek API key not configured', 'deepseek');
+    if (!deepseekApiKey) {
+        throw new Error('DeepSeek API key not configured');
     }
 
     const systemPrompt = isCodeGeneration 
-        ? "You are an expert software developer. Generate clean, production-ready code following best practices. Always respond with valid JSON format when requested. Focus on creating functional React applications with modern components and proper structure."
+        ? "You are an expert software developer. Generate clean, production-ready code following best practices. Always respond with valid JSON format when requested."
         : "You are a helpful AI assistant specialized in software development and web technologies.";
 
-    try {
-        const response = await fetch(DEEPSEEK_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${deepseekApiKey}`,
-            },
-            body: JSON.stringify({
-                model: 'deepseek-coder',
-                messages: [
-                    {
-                        role: 'system',
-                        content: systemPrompt
-                    },
-                    {
-                        role: 'user',
-                        content: prompt
-                    }
-                ],
-                temperature: isCodeGeneration ? 0.7 : 0.8,
-                max_tokens: isCodeGeneration ? 12000 : 4000,
-                stream: false
-            })
-        });
+    const response = await fetch(DEEPSEEK_API_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${deepseekApiKey}`,
+        },
+        body: JSON.stringify({
+            model: 'deepseek-coder',
+            messages: [
+                {
+                    role: 'system',
+                    content: systemPrompt
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            temperature: isCodeGeneration ? 0.7 : 0.8,
+            max_tokens: isCodeGeneration ? 12000 : 4000,
+            stream: false
+        })
+    });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new AIProviderError(
-                `DeepSeek API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`,
-                'deepseek'
-            );
-        }
-
-        const data = await response.json();
-        const result = {
-            response: {
-                text: () => data.choices[0]?.message?.content || ''
-            },
-            provider: 'deepseek'
-        };
-        
-        return result;
-    } catch (error) {
-        if (error instanceof AIProviderError) {
-            throw error;
-        }
-        throw new AIProviderError(`DeepSeek API call failed: ${error.message}`, 'deepseek', error);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`DeepSeek API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
     }
+
+    const data = await response.json();
+    return {
+        response: {
+            text: () => data.choices[0]?.message?.content || ''
+        }
+    };
 }
 
 // Enhanced chat session with fallback
 export const chatSession = {
     async sendMessage(prompt) {
-        // Try DeepSeek first if Gemini is not available or if we know it's quota exceeded
-        if (!apiKey || !model) {
-            console.log('Gemini not configured, using DeepSeek...');
-            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
-                return await callDeepSeekAPI(prompt, false);
-            }
-            throw new AIProviderError('No AI providers configured', 'none');
-        }
-
-        let geminiError = null;
-        
         try {
             // Try Gemini first
             const geminiSession = model.startChat({
                 generationConfig,
                 history: [],
             });
-            const result = await geminiSession.sendMessage(prompt);
-            return {
-                ...result,
-                provider: 'gemini'
-            };
+            return await geminiSession.sendMessage(prompt);
         } catch (error) {
             console.log('Gemini failed, trying DeepSeek...', error.message);
-            geminiError = new AIProviderError(error.message, 'gemini', error);
             
             // Fallback to DeepSeek
-            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
-                try {
-                    return await callDeepSeekAPI(prompt, false);
-                } catch (deepseekError) {
-                    // Both providers failed, throw the most relevant error
-                    if (geminiError.isQuotaError) {
-                        throw geminiError;
-                    }
-                    throw deepseekError;
-                }
+            if (deepseekApiKey) {
+                return await callDeepSeekAPI(prompt, false);
             }
             
-            throw geminiError;
+            throw error;
         }
     }
 };
@@ -161,17 +113,6 @@ export const chatSession = {
 // Enhanced code generation with fallback
 export const GenAiCode = {
     async sendMessage(prompt) {
-        // Try DeepSeek first if Gemini is not available
-        if (!apiKey || !model) {
-            console.log('Gemini not configured, using DeepSeek for code generation...');
-            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
-                return await callDeepSeekAPI(prompt, true);
-            }
-            throw new AIProviderError('No AI providers configured for code generation', 'none');
-        }
-
-        let geminiError = null;
-        
         try {
             // Try Gemini first
             const geminiSession = model.startChat({
@@ -191,29 +132,16 @@ export const GenAiCode = {
                       },
                 ],
             });
-            const result = await geminiSession.sendMessage(prompt);
-            return {
-                ...result,
-                provider: 'gemini'
-            };
+            return await geminiSession.sendMessage(prompt);
         } catch (error) {
             console.log('Gemini code generation failed, trying DeepSeek...', error.message);
-            geminiError = new AIProviderError(error.message, 'gemini', error);
             
             // Fallback to DeepSeek
-            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
-                try {
-                    return await callDeepSeekAPI(prompt, true);
-                } catch (deepseekError) {
-                    // Both providers failed, throw the most relevant error
-                    if (geminiError.isQuotaError) {
-                        throw geminiError;
-                    }
-                    throw deepseekError;
-                }
+            if (deepseekApiKey) {
+                return await callDeepSeekAPI(prompt, true);
             }
             
-            throw geminiError;
+            throw error;
         }
     }
 };
@@ -221,46 +149,22 @@ export const GenAiCode = {
 // Enhanced prompt enhancement with fallback
 export const enhancePromptSession = {
     async sendMessage(prompt) {
-        // Try DeepSeek first if Gemini is not available
-        if (!apiKey || !model) {
-            console.log('Gemini not configured, using DeepSeek for prompt enhancement...');
-            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
-                return await callDeepSeekAPI(prompt, false);
-            }
-            throw new AIProviderError('No AI providers configured for prompt enhancement', 'none');
-        }
-
-        let geminiError = null;
-        
         try {
             // Try Gemini first
             const geminiSession = model.startChat({
                 generationConfig: EnhancePromptConfig,
                 history: [],
             });
-            const result = await geminiSession.sendMessage(prompt);
-            return {
-                ...result,
-                provider: 'gemini'
-            };
+            return await geminiSession.sendMessage(prompt);
         } catch (error) {
             console.log('Gemini prompt enhancement failed, trying DeepSeek...', error.message);
-            geminiError = new AIProviderError(error.message, 'gemini', error);
             
             // Fallback to DeepSeek
-            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
-                try {
-                    return await callDeepSeekAPI(prompt, false);
-                } catch (deepseekError) {
-                    // Both providers failed, throw the most relevant error
-                    if (geminiError.isQuotaError) {
-                        throw geminiError;
-                    }
-                    throw deepseekError;
-                }
+            if (deepseekApiKey) {
+                return await callDeepSeekAPI(prompt, false);
             }
             
-            throw geminiError;
+            throw error;
         }
     }
 };
@@ -273,29 +177,29 @@ export const checkProviderStatus = async () => {
         activeProvider: null
     };
 
-    // Check DeepSeek first (since it's more reliable)
-    try {
-        if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
-            await callDeepSeekAPI("test", false);
-            status.deepseek = true;
-            status.activeProvider = 'deepseek';
-        }
-    } catch (error) {
-        console.log('DeepSeek unavailable:', error.message);
-    }
-
     // Check Gemini
     try {
-        if (apiKey && apiKey !== 'your_gemini_api_key_here' && model) {
+        if (apiKey) {
             const testSession = model.startChat({ generationConfig });
             await testSession.sendMessage("test");
             status.gemini = true;
-            if (!status.activeProvider) {
-                status.activeProvider = 'gemini';
-            }
+            status.activeProvider = 'gemini';
         }
     } catch (error) {
         console.log('Gemini unavailable:', error.message);
+    }
+
+    // Check DeepSeek
+    try {
+        if (deepseekApiKey) {
+            await callDeepSeekAPI("test", false);
+            status.deepseek = true;
+            if (!status.activeProvider) {
+                status.activeProvider = 'deepseek';
+            }
+        }
+    } catch (error) {
+        console.log('DeepSeek unavailable:', error.message);
     }
 
     return status;
