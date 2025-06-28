@@ -52,6 +52,12 @@ function CodeView() {
         // Preprocess and validate files before merging
         const processedFiles = preprocessFiles(result?.fileData || {});
         const mergedFiles = { ...defaultFiles, ...processedFiles };
+        
+        // Ensure package.json is always included for React projects
+        if (workspaceEnvironment === 'react' && !mergedFiles['/package.json']) {
+            mergedFiles['/package.json'] = Lookup.DEFAULT_FILE['/package.json'];
+        }
+        
         setFiles(mergedFiles);
     }
 
@@ -107,6 +113,13 @@ function CodeView() {
             const envConfig = EnvironmentConfig.ENVIRONMENTS[environment.toUpperCase()];
             const defaultFiles = envConfig?.defaultFiles || Lookup.DEFAULT_FILE;
             
+            // Always ensure package.json is included for React projects
+            if (environment === 'react') {
+                if (!processedAiFiles['/package.json'] && !defaultFiles['/package.json']) {
+                    processedAiFiles['/package.json'] = Lookup.DEFAULT_FILE['/package.json'];
+                }
+            }
+            
             const mergedFiles = { ...defaultFiles, ...processedAiFiles };
             setFiles(mergedFiles);
 
@@ -159,19 +172,21 @@ function CodeView() {
             const envConfig = EnvironmentConfig.ENVIRONMENTS[environment.toUpperCase()];
             
             if (environment === 'react' && envConfig?.dependencies) {
-                // Add package.json for React projects
-                const packageJson = {
-                    name: "generated-react-project",
-                    version: "1.0.0",
-                    private: true,
-                    dependencies: envConfig.dependencies,
-                    scripts: {
-                        "dev": "vite",
-                        "build": "vite build",
-                        "preview": "vite preview"
-                    }
-                };
-                zip.file("package.json", JSON.stringify(packageJson, null, 2));
+                // Add package.json for React projects if not already included
+                if (!files['/package.json']) {
+                    const packageJson = {
+                        name: "generated-react-project",
+                        version: "1.0.0",
+                        private: true,
+                        dependencies: envConfig.dependencies,
+                        scripts: {
+                            "dev": "vite",
+                            "build": "vite build",
+                            "preview": "vite preview"
+                        }
+                    };
+                    zip.file("package.json", JSON.stringify(packageJson, null, 2));
+                }
             } else if (environment === 'wordpress') {
                 // Add README for WordPress theme
                 const readmeContent = `# WordPress Theme
@@ -272,14 +287,13 @@ function CodeView() {
     };
 
     const getSandpackDependencies = () => {
-        const envConfig = EnvironmentConfig.ENVIRONMENTS[environment.toUpperCase()];
-        
-        // For WordPress and HTML, return empty dependencies since they don't use npm
-        if (environment === 'wordpress' || environment === 'html') {
-            return {};
+        // For React projects, use the dependencies from Lookup
+        if (environment === 'react') {
+            return Lookup.DEPENDANCY;
         }
         
-        return envConfig?.dependencies || Lookup.DEPENDANCY;
+        // For WordPress and HTML, return empty dependencies since they don't use npm
+        return {};
     };
 
     const getSandpackEntry = () => {
