@@ -18,7 +18,7 @@ import { UpdateFiles } from '@/convex/workspace';
 import { useConvex, useMutation } from 'convex/react';
 import { useParams } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
-import { Loader2Icon, Download } from 'lucide-react';
+import { Loader2Icon, Download, Code2, Eye, Zap, FileCode } from 'lucide-react';
 import JSZip from 'jszip';
 
 function CodeView() {
@@ -238,9 +238,9 @@ function CodeView() {
 
     const getEnvironmentBadge = () => {
         const envColors = {
-            react: 'bg-blue-500/20 text-blue-400',
-            wordpress: 'bg-purple-500/20 text-purple-400',
-            html: 'bg-green-500/20 text-green-400'
+            react: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+            wordpress: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+            html: 'bg-green-500/20 text-green-400 border-green-500/30'
         };
         
         const envIcons = {
@@ -250,9 +250,10 @@ function CodeView() {
         };
 
         return (
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${envColors[environment] || envColors.react}`}>
-                <span>{envIcons[environment] || envIcons.react}</span>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 env-badge ${envColors[environment] || envColors.react}`}>
+                <span className="text-lg">{envIcons[environment] || envIcons.react}</span>
                 <span>{environment.toUpperCase()}</span>
+                <Zap className="h-4 w-4 animate-pulse" />
             </div>
         );
     };
@@ -262,6 +263,7 @@ function CodeView() {
             case 'react':
                 return 'react';
             case 'html':
+                return 'vanilla';
             case 'wordpress':
                 return 'vanilla';
             default:
@@ -564,77 +566,178 @@ function CodeView() {
 
     return (
         <div className='relative'>
-            <div className='bg-[#181818] w-full p-2 border'>
+            {/* Enhanced Header */}
+            <div className='glass-dark border border-cyan-400/20 w-full p-4 rounded-t-xl'>
                 <div className='flex items-center justify-between'>
-                    <div className='flex items-center gap-4'>
-                        <div className='flex items-center flex-wrap shrink-0 bg-black p-1 justify-center
-                        w-[140px] gap-3 rounded-full'>
-                            <h2 onClick={() => setActiveTab('code')}
-                                className={`text-sm cursor-pointer 
-                            ${activeTab == 'code' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
-                                Code</h2>
+                    <div className='flex items-center gap-6'>
+                        {/* Enhanced Tab Switcher */}
+                        <div className='flex items-center glass border border-cyan-400/30 p-1 rounded-full'>
+                            <button 
+                                onClick={() => setActiveTab('code')}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 ${
+                                    activeTab === 'code' 
+                                        ? 'bg-turquoise-gradient text-white shadow-lg animate-pulse-glow' 
+                                        : 'text-cyan-400/70 hover:text-cyan-400 hover:bg-cyan-400/10'
+                                }`}
+                            >
+                                <Code2 className="h-4 w-4" />
+                                Code
+                            </button>
 
-                            <h2 onClick={() => setActiveTab('preview')}
-                                className={`text-sm cursor-pointer 
-                            ${activeTab == 'preview' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
-                                Preview</h2>
+                            <button 
+                                onClick={() => setActiveTab('preview')}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 ${
+                                    activeTab === 'preview' 
+                                        ? 'bg-turquoise-gradient text-white shadow-lg animate-pulse-glow' 
+                                        : 'text-cyan-400/70 hover:text-cyan-400 hover:bg-cyan-400/10'
+                                }`}
+                            >
+                                <Eye className="h-4 w-4" />
+                                Preview
+                            </button>
                         </div>
+                        
                         {getEnvironmentBadge()}
+                        
+                        {/* File count indicator */}
+                        <div className="flex items-center gap-2 text-cyan-400/60 text-sm">
+                            <FileCode className="h-4 w-4" />
+                            <span>{Object.keys(files).length} files</span>
+                        </div>
                     </div>
 
-                    {/* Download Button */}
+                    {/* Enhanced Download Button */}
                     <button
                         onClick={downloadFiles}
-                        className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full transition-colors duration-200"
+                        className="group relative overflow-hidden bg-turquoise-gradient hover:scale-105 text-white px-6 py-3 rounded-full transition-all duration-300 hover-lift animate-pulse-glow"
                     >
-                        <Download className="h-4 w-4" />
-                        <span>Download Files</span>
+                        <div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                        <div className="flex items-center gap-2 relative z-10">
+                            <Download className="h-4 w-4 group-hover:animate-bounce" />
+                            <span className="font-medium">Download</span>
+                        </div>
                     </button>
                 </div>
             </div>
-            <SandpackProvider
-                files={environment === 'wordpress' ? getWordPressPreviewFiles() : files}
-                template={getSandpackTemplate()}
-                theme={'dark'}
-                customSetup={{
-                    dependencies: getSandpackDependencies(),
-                    entry: getSandpackEntry()
-                }}
-                options={{
-                    externalResources: getSandpackExternalResources(),
-                    bundlerTimeoutSecs: 120,
-                    recompileMode: "immediate",
-                    recompileDelay: 300
-                }}
-            >
-                <div className="relative">
-                    <SandpackLayout>
-                        {activeTab == 'code' ? <>
-                            <SandpackFileExplorer style={{ height: '80vh' }} />
-                            <SandpackCodeEditor
-                                style={{ height: '80vh' }}
-                                showTabs
-                                showLineNumbers
-                                showInlineErrors
-                                wrapContent />
-                        </> :
-                            <>
+            
+            {/* Enhanced Code Editor */}
+            <div className="code-editor-wrapper">
+                <SandpackProvider
+                    files={environment === 'wordpress' ? getWordPressPreviewFiles() : files}
+                    template={getSandpackTemplate()}
+                    theme={{
+                        colors: {
+                            surface1: '#0f172a',
+                            surface2: '#1e293b',
+                            surface3: '#334155',
+                            clickable: '#22d3ee',
+                            base: '#e2e8f0',
+                            disabled: '#64748b',
+                            hover: '#06b6d4',
+                            accent: '#22d3ee',
+                            error: '#ef4444',
+                            errorSurface: '#7f1d1d',
+                        },
+                        syntax: {
+                            plain: '#e2e8f0',
+                            comment: '#64748b',
+                            keyword: '#22d3ee',
+                            tag: '#06b6d4',
+                            punctuation: '#94a3b8',
+                            definition: '#0891b2',
+                            property: '#22d3ee',
+                            static: '#06b6d4',
+                            string: '#10b981',
+                        },
+                        font: {
+                            body: '"Fira Code", "Consolas", "Monaco", monospace',
+                            mono: '"Fira Code", "Consolas", "Monaco", monospace',
+                            size: '14px',
+                            lineHeight: '1.5',
+                        },
+                    }}
+                    customSetup={{
+                        dependencies: getSandpackDependencies(),
+                        entry: getSandpackEntry()
+                    }}
+                    options={{
+                        externalResources: getSandpackExternalResources(),
+                        bundlerTimeoutSecs: 120,
+                        recompileMode: "immediate",
+                        recompileDelay: 300,
+                        showNavigator: true,
+                        showTabs: true,
+                        showLineNumbers: true,
+                        showInlineErrors: true,
+                        wrapContent: true,
+                        editorHeight: '80vh',
+                        editorWidthPercentage: activeTab === 'code' ? 50 : 0,
+                    }}
+                >
+                    <div className="relative">
+                        <SandpackLayout>
+                            {activeTab === 'code' ? (
+                                <>
+                                    <SandpackFileExplorer 
+                                        style={{ 
+                                            height: '80vh',
+                                            background: '#0f172a',
+                                            border: '1px solid rgba(34, 211, 238, 0.2)'
+                                        }} 
+                                    />
+                                    <SandpackCodeEditor
+                                        style={{ 
+                                            height: '80vh',
+                                            background: '#0f172a',
+                                            border: '1px solid rgba(34, 211, 238, 0.2)'
+                                        }}
+                                        showTabs
+                                        showLineNumbers
+                                        showInlineErrors
+                                        wrapContent 
+                                    />
+                                </>
+                            ) : (
                                 <SandpackPreview
-                                    style={{ height: '80vh' }}
+                                    style={{ 
+                                        height: '80vh',
+                                        background: '#0f172a',
+                                        border: '1px solid rgba(34, 211, 238, 0.2)'
+                                    }}
                                     showNavigator={true}
                                     showOpenInCodeSandbox={false}
                                     showRefreshButton={true}
                                 />
-                            </>}
-                    </SandpackLayout>
-                </div>
-            </SandpackProvider>
+                            )}
+                        </SandpackLayout>
+                    </div>
+                </SandpackProvider>
+            </div>
 
-            {loading && <div className='p-10 bg-gray-900 opacity-80 absolute top-0 
-            rounded-lg w-full h-full flex items-center justify-center'>
-                <Loader2Icon className='animate-spin h-10 w-10 text-white' />
-                <h2 className='text-white'> Generating {environment.toUpperCase()} files...</h2>
-            </div>}
+            {/* Enhanced Loading Overlay */}
+            {loading && (
+                <div className='absolute inset-0 glass-dark rounded-xl flex items-center justify-center z-50'>
+                    <div className="text-center space-y-6">
+                        <div className="relative">
+                            <div className="w-20 h-20 bg-turquoise-gradient rounded-full flex items-center justify-center animate-pulse-glow">
+                                <Loader2Icon className='animate-spin h-10 w-10 text-white' />
+                            </div>
+                            <div className="absolute inset-0 bg-turquoise-gradient rounded-full blur-xl opacity-30 animate-pulse"></div>
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className='text-2xl font-bold text-cyan-400 neon-text'>
+                                Generating {environment.toUpperCase()} files...
+                            </h2>
+                            <p className="text-gray-400">AI is crafting your perfect code</p>
+                            <div className="loading-dots justify-center">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

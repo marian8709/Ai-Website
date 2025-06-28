@@ -1,6 +1,6 @@
 "use client"
 import { MessagesContext } from '@/context/MessagesContext';
-import { ArrowRight, Link, Loader2Icon, Send } from 'lucide-react';
+import { ArrowRight, Link, Loader2Icon, Send, Sparkles, Bot, User, Zap } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import { useConvex } from 'convex/react';
 import { useParams } from 'next/navigation';
@@ -17,6 +17,7 @@ function ChatView() {
     const [userInput, setUserInput] = useState();
     const [loading, setLoading] = useState(false);
     const [environment, setEnvironment] = useState('react');
+    const [isTyping, setIsTyping] = useState(false);
     const UpdateMessages = useMutation(api.workspace.UpdateWorkspace);
 
     useEffect(() => {
@@ -43,6 +44,8 @@ function ChatView() {
 
     const GetAiResponse = async () => {
         setLoading(true);
+        setIsTyping(true);
+        
         const PROMPT = JSON.stringify(messages) + Prompt.CHAT_PROMPT;
         const result = await axios.post('/api/ai-chat', {
             prompt: PROMPT
@@ -52,6 +55,8 @@ function ChatView() {
             role: 'ai',
             content: result.data.result
         }
+        
+        setIsTyping(false);
         setMessages(prev => [...prev, aiResp]);
         await UpdateMessages({
             messages: [...messages, aiResp],
@@ -83,85 +88,167 @@ function ChatView() {
         };
 
         return (
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium ${envColors[environment] || envColors.react}`}>
-                <span>{envIcons[environment] || envIcons.react}</span>
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all duration-300 hover:scale-105 env-badge ${envColors[environment] || envColors.react}`}>
+                <span className="text-lg">{envIcons[environment] || envIcons.react}</span>
                 <span>{environment.toUpperCase()}</span>
+                <Zap className="h-4 w-4 animate-pulse" />
             </div>
         );
     };
 
     return (
-        <div className="relative h-[85vh] flex flex-col bg-gray-900">
-            {/* Environment Badge */}
-            <div className="p-4 border-b border-gray-800">
+        <div className="relative h-[85vh] flex flex-col glass-dark border border-cyan-400/20 rounded-xl overflow-hidden">
+            {/* Enhanced Header */}
+            <div className="p-6 border-b border-cyan-400/20 bg-gradient-to-r from-slate-900/50 to-slate-800/50">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-lg font-semibold text-white">Project Chat</h2>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <div className="w-10 h-10 bg-turquoise-gradient rounded-full flex items-center justify-center animate-pulse-glow">
+                                    <Sparkles className="h-5 w-5 text-white" />
+                                </div>
+                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-slate-900 animate-pulse"></div>
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-cyan-400 neon-text">AI Assistant</h2>
+                                <p className="text-xs text-gray-400">Ready to help you code</p>
+                            </div>
+                        </div>
                         {getEnvironmentBadge()}
+                    </div>
+                    
+                    <div className="flex items-center space-x-2 text-cyan-400/60 text-sm">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span>Online</span>
                     </div>
                 </div>
             </div>
 
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide p-4">
-                <div className="max-w-4xl mx-auto space-y-4">
+            {/* Enhanced Chat Messages */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                <div className="max-w-4xl mx-auto space-y-6">
                     {Array.isArray(messages) && messages?.map((msg, index) => (
                         <div
                             key={index}
-                            className={`p-4 rounded-lg ${
+                            className={`message-enter ${
                                 msg.role === 'user' 
-                                    ? 'bg-gray-800/50 border border-gray-700' 
-                                    : 'bg-gray-800/30 border border-gray-700'
+                                    ? 'flex justify-end' 
+                                    : 'flex justify-start'
                             }`}
                         >
-                            <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${
-                                    msg.role === 'user' 
-                                        ? 'bg-blue-500/20 text-blue-400' 
-                                        : 'bg-purple-500/20 text-purple-400'
-                                }`}>
-                                    {msg.role === 'user' ? 'You' : 'AI'}
+                            <div className={`max-w-[80%] ${
+                                msg.role === 'user'
+                                    ? 'glass border border-cyan-400/30 rounded-2xl rounded-br-md'
+                                    : 'glass-dark border border-gray-600/30 rounded-2xl rounded-bl-md'
+                            } p-6 hover-lift transition-all duration-300`}>
+                                <div className="flex items-start gap-4">
+                                    <div className={`p-3 rounded-full ${
+                                        msg.role === 'user' 
+                                            ? 'bg-turquoise-gradient' 
+                                            : 'bg-gradient-to-r from-purple-500 to-pink-500'
+                                    } animate-pulse-glow`}>
+                                        {msg.role === 'user' ? (
+                                            <User className="h-5 w-5 text-white" />
+                                        ) : (
+                                            <Bot className="h-5 w-5 text-white" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className={`font-semibold ${
+                                                msg.role === 'user' ? 'text-cyan-400' : 'text-purple-400'
+                                            }`}>
+                                                {msg.role === 'user' ? 'You' : 'AI Assistant'}
+                                            </span>
+                                            <span className="text-xs text-gray-500">
+                                                {new Date().toLocaleTimeString()}
+                                            </span>
+                                        </div>
+                                        <ReactMarkdown className="prose prose-invert prose-cyan max-w-none">
+                                            {msg.content}
+                                        </ReactMarkdown>
+                                    </div>
                                 </div>
-                                <ReactMarkdown className="prose prose-invert flex-1 overflow-auto">
-                                    {msg.content}
-                                </ReactMarkdown>
                             </div>
                         </div>
                     ))}
                     
-                    {loading && (
-                        <div className="p-4 rounded-lg bg-gray-800/30 border border-gray-700">
-                            <div className="flex items-center gap-3 text-gray-400">
-                                <Loader2Icon className="animate-spin h-5 w-5" />
-                                <p className="font-medium">Generating response...</p>
+                    {/* Typing Indicator */}
+                    {isTyping && (
+                        <div className="flex justify-start message-enter">
+                            <div className="glass-dark border border-gray-600/30 rounded-2xl rounded-bl-md p-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 animate-pulse-glow">
+                                        <Bot className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-purple-400 font-semibold">AI Assistant</span>
+                                        <span className="text-gray-400">is typing</span>
+                                        <div className="loading-dots">
+                                            <span></span>
+                                            <span></span>
+                                            <span></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Loading State */}
+                    {loading && !isTyping && (
+                        <div className="flex justify-center">
+                            <div className="glass-dark border border-cyan-400/30 rounded-xl p-6">
+                                <div className="flex items-center gap-4 text-cyan-400">
+                                    <Loader2Icon className="animate-spin h-6 w-6" />
+                                    <p className="font-medium">Processing your request...</p>
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Input Section */}
-            <div className="border-t border-gray-800 bg-gray-900/50 backdrop-blur-sm p-4">
+            {/* Enhanced Input Section */}
+            <div className="border-t border-cyan-400/20 bg-gradient-to-r from-slate-900/50 to-slate-800/50 p-6">
                 <div className="max-w-4xl mx-auto">
-                    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
-                        <div className="flex gap-3">
-                            <textarea
-                                placeholder={`Ask about your ${environment.toUpperCase()} project...`}
-                                value={userInput}
-                                onChange={(event) => setUserInput(event.target.value)}
-                                className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-4 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 resize-none h-32"
-                            />
+                    <div className="glass-dark border border-cyan-400/30 rounded-2xl p-6 hover:border-cyan-400/50 transition-all duration-300">
+                        <div className="flex gap-4">
+                            <div className="flex-1 relative group">
+                                <textarea
+                                    placeholder={`💬 Ask about your ${environment.toUpperCase()} project...`}
+                                    value={userInput}
+                                    onChange={(event) => setUserInput(event.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && e.ctrlKey && userInput) {
+                                            onGenerate(userInput);
+                                        }
+                                    }}
+                                    className="w-full bg-transparent border-2 border-cyan-400/30 rounded-xl p-4 text-white placeholder-cyan-400/60 focus:border-cyan-400 focus:ring-0 outline-none transition-all duration-300 resize-none h-24 form-input custom-scrollbar"
+                                />
+                                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/5 to-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                            </div>
+                            
                             {userInput && (
                                 <button
                                     onClick={() => onGenerate(userInput)}
-                                    className="flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-xl px-4 transition-all duration-200"
+                                    className="group relative overflow-hidden bg-turquoise-gradient hover:scale-105 rounded-xl px-6 py-4 transition-all duration-300 hover-lift animate-pulse-glow"
                                 >
-                                    <Send className="h-6 w-6 text-white" />
+                                    <div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                                    <Send className="h-6 w-6 text-white relative z-10 group-hover:translate-x-1 transition-transform duration-200" />
                                 </button>
                             )}
                         </div>
-                        <div className="flex justify-end mt-3">
-                            <Link className="h-5 w-5 text-gray-400 hover:text-gray-300 transition-colors duration-200" />
+                        
+                        <div className="flex justify-between items-center mt-4">
+                            <div className="flex items-center space-x-2 text-cyan-400/60 text-sm">
+                                <Link className="h-4 w-4" />
+                                <span>AI-powered assistance</span>
+                            </div>
+                            <div className="flex items-center space-x-2 text-cyan-400/60 text-sm">
+                                <span>Ctrl+Enter to send</span>
+                                <ArrowRight className="h-4 w-4" />
+                            </div>
                         </div>
                     </div>
                 </div>
