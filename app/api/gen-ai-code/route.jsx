@@ -134,6 +134,72 @@ export async function POST(req){
             return fixed;
         }
         
+        // Function to escape problematic JSON characters
+        function escapeProblematicJsonChars(jsonStr) {
+            let result = '';
+            let inString = false;
+            let i = 0;
+            
+            while (i < jsonStr.length) {
+                const char = jsonStr[i];
+                const nextChar = jsonStr[i + 1];
+                
+                // Track if we're inside a string
+                if (char === '"' && (i === 0 || jsonStr[i - 1] !== '\\')) {
+                    inString = !inString;
+                    result += char;
+                    i++;
+                    continue;
+                }
+                
+                // Only process escape sequences inside strings
+                if (inString && char === '\\') {
+                    // Check if this is already a valid escape sequence
+                    if (nextChar && ['\\', '"', '/', 'b', 'f', 'n', 'r', 't', 'u'].includes(nextChar)) {
+                        // Valid escape sequence, keep as is
+                        result += char;
+                    } else {
+                        // Invalid escape sequence, escape the backslash
+                        result += '\\\\';
+                    }
+                } else if (inString) {
+                    // Handle other control characters that need escaping
+                    switch (char) {
+                        case '\b':
+                            result += '\\b';
+                            break;
+                        case '\f':
+                            result += '\\f';
+                            break;
+                        case '\n':
+                            result += '\\n';
+                            break;
+                        case '\r':
+                            result += '\\r';
+                            break;
+                        case '\t':
+                            result += '\\t';
+                            break;
+                        default:
+                            // Check for other control characters (0x00-0x1F)
+                            if (char.charCodeAt(0) < 32) {
+                                result += '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0');
+                            } else {
+                                result += char;
+                            }
+                            break;
+                    }
+                } else {
+                    // Outside of strings, keep character as is
+                    result += char;
+                }
+                
+                i++;
+            }
+            
+            return result;
+        }
+        
         // Step 1: Extract content from markdown if present
         let cleanedResp = extractFromMarkdown(resp);
         
@@ -150,25 +216,30 @@ export async function POST(req){
             });
         }
         
-        // Step 3: Attempt to parse the extracted JSON
+        // Step 3: Escape problematic characters before parsing
+        let escapedJsonContent = escapeProblematicJsonChars(jsonContent);
+        
+        // Step 4: Attempt to parse the escaped JSON
         let parsedResponse;
         try {
-            parsedResponse = JSON.parse(jsonContent);
+            parsedResponse = JSON.parse(escapedJsonContent);
         } catch (parseError) {
             console.log('Initial JSON parse failed, attempting to fix structure...');
             
-            // Step 4: Try to fix basic structural issues
+            // Step 5: Try to fix basic structural issues and re-escape
             const fixedJson = fixJsonStructure(jsonContent);
+            const escapedFixedJson = escapeProblematicJsonChars(fixedJson);
             
             try {
-                parsedResponse = JSON.parse(fixedJson);
-                console.log('Successfully parsed JSON after structural fixes');
+                parsedResponse = JSON.parse(escapedFixedJson);
+                console.log('Successfully parsed JSON after structural fixes and escaping');
             } catch (secondParseError) {
-                console.error('Failed to parse JSON even after fixes');
+                console.error('Failed to parse JSON even after fixes and escaping');
                 console.error('Original error:', parseError.message);
                 console.error('Second error:', secondParseError.message);
                 console.error('Extracted JSON (first 200 chars):', jsonContent.substring(0, 200));
-                console.error('Fixed JSON (first 200 chars):', fixedJson.substring(0, 200));
+                console.error('Escaped JSON (first 200 chars):', escapedJsonContent.substring(0, 200));
+                console.error('Fixed and escaped JSON (first 200 chars):', escapedFixedJson.substring(0, 200));
                 
                 return NextResponse.json({
                     files: {},
@@ -176,6 +247,7 @@ export async function POST(req){
                     rawResponse: resp.substring(0, 500) + '...',
                     extractedJson: jsonContent.substring(0, 200) + '...',
                     parseError: parseError.message,
+                    secondParseError: secondParseError.message,
                     provider: usedProvider
                 });
             }
