@@ -188,6 +188,39 @@ export async function POST(req){
             return result;
         }
         
+        // Function to quote unquoted property names in JSON
+        function quoteUnquotedKeys(jsonStr) {
+            let result = jsonStr;
+            
+            // Pattern to match unquoted keys followed by a colon
+            // This regex looks for word characters (letters, numbers, underscore) that are not already quoted
+            // and are followed by optional whitespace and a colon
+            const unquotedKeyPattern = /(\{|,)\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g;
+            
+            result = result.replace(unquotedKeyPattern, function(match, prefix, key) {
+                return `${prefix}"${key}":`;
+            });
+            
+            // Also handle cases where there might be spaces around the key
+            const unquotedKeyWithSpacesPattern = /(\{|,)\s*([a-zA-Z_$][a-zA-Z0-9_$\s]*[a-zA-Z0-9_$])\s*:/g;
+            
+            result = result.replace(unquotedKeyWithSpacesPattern, function(match, prefix, key) {
+                // Only quote if the key doesn't already have quotes
+                if (!key.includes('"')) {
+                    return `${prefix}"${key.trim()}":`;
+                }
+                return match;
+            });
+            
+            // Handle edge case where the first property doesn't have a comma before it
+            const firstUnquotedKeyPattern = /^\s*\{\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/;
+            result = result.replace(firstUnquotedKeyPattern, function(match, key) {
+                return `{"${key}":`;
+            });
+            
+            return result;
+        }
+        
         // Step 1: Extract content from markdown if present
         let cleanedResp = extractFromMarkdown(resp);
         
@@ -210,14 +243,17 @@ export async function POST(req){
         // Step 4: Escape problematic characters after fixing structure
         let escapedJsonContent = escapeProblematicJsonChars(fixedJsonContent);
         
-        // Step 5: Attempt to parse the fixed and escaped JSON
+        // Step 5: Quote unquoted keys
+        let quotedJsonContent = quoteUnquotedKeys(escapedJsonContent);
+        
+        // Step 6: Attempt to parse the fixed and escaped JSON
         let parsedResponse;
         try {
-            parsedResponse = JSON.parse(escapedJsonContent);
+            parsedResponse = JSON.parse(quotedJsonContent);
         } catch (parseError) {
             console.log('Initial JSON parse failed, attempting additional fixes...');
             
-            // Step 6: Try more aggressive fixes if the first attempt fails
+            // Step 7: Try more aggressive fixes if the first attempt fails
             let aggressivelyFixed = fixedJsonContent;
             
             // Remove any non-printable characters that might be causing issues
@@ -228,9 +264,10 @@ export async function POST(req){
             aggressivelyFixed = aggressivelyFixed.replace(/([}\]])(\s*)(["\w])/g, '$1,$2$3'); // Add missing commas between objects
             
             const reEscapedJson = escapeProblematicJsonChars(aggressivelyFixed);
+            const reQuotedJson = quoteUnquotedKeys(reEscapedJson);
             
             try {
-                parsedResponse = JSON.parse(reEscapedJson);
+                parsedResponse = JSON.parse(reQuotedJson);
                 console.log('Successfully parsed JSON after aggressive fixes and escaping');
             } catch (secondParseError) {
                 console.error('Failed to parse JSON even after aggressive fixes and escaping');
@@ -239,6 +276,7 @@ export async function POST(req){
                 console.error('Original JSON (first 200 chars):', jsonContent.substring(0, 200));
                 console.error('Fixed JSON (first 200 chars):', fixedJsonContent.substring(0, 200));
                 console.error('Escaped JSON (first 200 chars):', escapedJsonContent.substring(0, 200));
+                console.error('Quoted JSON (first 200 chars):', quotedJsonContent.substring(0, 200));
                 
                 return NextResponse.json({
                     files: {},
