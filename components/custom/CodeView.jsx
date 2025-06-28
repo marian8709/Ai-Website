@@ -18,7 +18,7 @@ import { UpdateFiles } from '@/convex/workspace';
 import { useConvex, useMutation } from 'convex/react';
 import { useParams } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
-import { Loader2Icon, Download } from 'lucide-react';
+import { Loader2Icon, Download, AlertCircle, RefreshCw } from 'lucide-react';
 import JSZip from 'jszip';
 
 function CodeView() {
@@ -31,6 +31,7 @@ function CodeView() {
     const UpdateFiles = useMutation(api.workspace.UpdateFiles);
     const convex = useConvex();
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         id && GetFiles();
@@ -84,6 +85,7 @@ function CodeView() {
 
     const GenerateAiCode = async () => {
         setLoading(true);
+        setError(null);
         try {
             const PROMPT = JSON.stringify(messages);
             const result = await axios.post('/api/gen-ai-code', {
@@ -94,7 +96,22 @@ function CodeView() {
             // Check if the API returned an error
             if (result.data?.error) {
                 console.error('AI Code generation error:', result.data.error);
-                // Still try to process any files that might have been returned
+                
+                // Check if it's a quota error
+                if (result.data.error.includes('429') || result.data.error.includes('quota') || result.data.error.includes('exceeded')) {
+                    setError({
+                        type: 'quota',
+                        message: 'API quota exceeded. You have reached the daily limit for the free tier.',
+                        details: 'The Google Gemini API free tier allows 50 requests per day. Please wait 24 hours for the quota to reset, or upgrade your plan for higher limits.'
+                    });
+                } else {
+                    setError({
+                        type: 'api',
+                        message: 'AI service temporarily unavailable',
+                        details: result.data.error
+                    });
+                }
+                return;
             }
 
             // Ensure we have a files object, even if empty
@@ -121,11 +138,36 @@ function CodeView() {
             }
         } catch (error) {
             console.error('Error in GenerateAiCode:', error);
-            // Don't call UpdateFiles if there was an error
+            
+            // Handle different types of errors
+            if (error.response?.status === 429) {
+                setError({
+                    type: 'quota',
+                    message: 'API quota exceeded. You have reached the daily limit for the free tier.',
+                    details: 'The Google Gemini API free tier allows 50 requests per day. Please wait 24 hours for the quota to reset, or upgrade your plan for higher limits.'
+                });
+            } else if (error.response?.data?.error) {
+                setError({
+                    type: 'api',
+                    message: 'AI service error',
+                    details: error.response.data.error
+                });
+            } else {
+                setError({
+                    type: 'network',
+                    message: 'Network error occurred',
+                    details: 'Please check your internet connection and try again.'
+                });
+            }
         } finally {
             setLoading(false);
         }
     }
+
+    const retryGeneration = () => {
+        setError(null);
+        GenerateAiCode();
+    };
 
     const downloadFiles = async () => {
         try {
@@ -562,6 +604,70 @@ function CodeView() {
         return previewFiles;
     };
 
+    const ErrorDisplay = ({ error, onRetry }) => {
+        const getErrorIcon = () => {
+            switch (error.type) {
+                case 'quota':
+                    return <AlertCircle className="h-8 w-8 text-yellow-500" />;
+                case 'api':
+                    return <AlertCircle className="h-8 w-8 text-red-500" />;
+                case 'network':
+                    return <AlertCircle className="h-8 w-8 text-orange-500" />;
+                default:
+                    return <AlertCircle className="h-8 w-8 text-gray-500" />;
+            }
+        };
+
+        const getErrorColor = () => {
+            switch (error.type) {
+                case 'quota':
+                    return 'border-yellow-200 bg-yellow-50';
+                case 'api':
+                    return 'border-red-200 bg-red-50';
+                case 'network':
+                    return 'border-orange-200 bg-orange-50';
+                default:
+                    return 'border-gray-200 bg-gray-50';
+            }
+        };
+
+        return (
+            <div className={`p-6 border rounded-lg ${getErrorColor()}`}>
+                <div className="flex items-start gap-4">
+                    {getErrorIcon()}
+                    <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            {error.message}
+                        </h3>
+                        <p className="text-gray-700 mb-4">
+                            {error.details}
+                        </p>
+                        {error.type === 'quota' && (
+                            <div className="bg-white p-4 rounded border border-yellow-200 mb-4">
+                                <h4 className="font-medium text-gray-900 mb-2">Solutions:</h4>
+                                <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+                                    <li>Wait 24 hours for the quota to reset</li>
+                                    <li>Upgrade to a paid Google Cloud plan for higher limits</li>
+                                    <li>Use a different API key if available</li>
+                                    <li>Consider using the existing code files for now</li>
+                                </ul>
+                            </div>
+                        )}
+                        {error.type !== 'quota' && (
+                            <button
+                                onClick={onRetry}
+                                className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                Try Again
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className='relative'>
             <div className='bg-[#181818] w-full p-2 border'>
@@ -592,6 +698,14 @@ function CodeView() {
                     </button>
                 </div>
             </div>
+
+            {/* Error Display */}
+            {error && (
+                <div className="p-4 bg-gray-900">
+                    <ErrorDisplay error={error} onRetry={retryGeneration} />
+                </div>
+            )}
+
             <SandpackProvider
                 files={environment === 'wordpress' ? getWordPressPreviewFiles() : files}
                 template={getSandpackTemplate()}
