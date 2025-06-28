@@ -112,7 +112,54 @@ export async function POST(req){
         function fixJsonStructure(jsonStr) {
             let fixed = jsonStr.trim();
             
-            // Count opening and closing braces/brackets
+            // First, handle unterminated strings
+            let quoteCount = 0;
+            let inString = false;
+            let escapeNext = false;
+            let lastQuotePos = -1;
+            
+            // Count quotes and track string state
+            for (let i = 0; i < fixed.length; i++) {
+                const char = fixed[i];
+                
+                if (escapeNext) {
+                    escapeNext = false;
+                    continue;
+                }
+                
+                if (char === '\\') {
+                    escapeNext = true;
+                    continue;
+                }
+                
+                if (char === '"') {
+                    quoteCount++;
+                    lastQuotePos = i;
+                    inString = !inString;
+                }
+            }
+            
+            // If we have an odd number of quotes, we have an unterminated string
+            if (quoteCount % 2 !== 0) {
+                // Find the last position where we can safely add a closing quote
+                // Look for common JSON delimiters after the last quote
+                let insertPos = fixed.length;
+                
+                // Look backwards from the end to find a good place to close the string
+                for (let i = fixed.length - 1; i > lastQuotePos; i--) {
+                    const char = fixed[i];
+                    // If we find structural characters, insert the quote before them
+                    if (char === '}' || char === ']' || char === ',' || char === '\n' || char === '\r') {
+                        insertPos = i;
+                        break;
+                    }
+                }
+                
+                // Insert the closing quote
+                fixed = fixed.slice(0, insertPos) + '"' + fixed.slice(insertPos);
+            }
+            
+            // Then handle missing braces and brackets
             const openBraces = (fixed.match(/{/g) || []).length;
             const closeBraces = (fixed.match(/}/g) || []).length;
             const openBrackets = (fixed.match(/\[/g) || []).length;
