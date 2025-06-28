@@ -134,70 +134,42 @@ export async function POST(req){
             return fixed;
         }
         
-        // Function to escape problematic JSON characters
+        // Function to escape problematic JSON characters using regex
         function escapeProblematicJsonChars(jsonStr) {
-            let result = '';
+            // First, handle control characters (ASCII 0x00-0x1F) by converting them to Unicode escapes
+            let result = jsonStr.replace(/[\x00-\x1F]/g, function(match) {
+                const code = match.charCodeAt(0);
+                return '\\u' + code.toString(16).padStart(4, '0');
+            });
+            
+            // Then handle backslashes that are not part of valid JSON escape sequences
+            // This regex matches backslashes that are NOT followed by valid JSON escape characters
+            result = result.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+            
+            // Handle any remaining unescaped quotes within strings
+            // This is more complex as we need to track string boundaries
+            let finalResult = '';
             let inString = false;
             let i = 0;
             
-            while (i < jsonStr.length) {
-                const char = jsonStr[i];
-                const nextChar = jsonStr[i + 1];
+            while (i < result.length) {
+                const char = result[i];
+                const prevChar = i > 0 ? result[i - 1] : '';
                 
-                // Track if we're inside a string
-                if (char === '"' && (i === 0 || jsonStr[i - 1] !== '\\')) {
+                if (char === '"' && prevChar !== '\\') {
                     inString = !inString;
-                    result += char;
-                    i++;
-                    continue;
-                }
-                
-                // Only process escape sequences inside strings
-                if (inString && char === '\\') {
-                    // Check if this is already a valid escape sequence
-                    if (nextChar && ['\\', '"', '/', 'b', 'f', 'n', 'r', 't', 'u'].includes(nextChar)) {
-                        // Valid escape sequence, keep as is
-                        result += char;
-                    } else {
-                        // Invalid escape sequence, escape the backslash
-                        result += '\\\\';
-                    }
-                } else if (inString) {
-                    // Handle other control characters that need escaping
-                    switch (char) {
-                        case '\b':
-                            result += '\\b';
-                            break;
-                        case '\f':
-                            result += '\\f';
-                            break;
-                        case '\n':
-                            result += '\\n';
-                            break;
-                        case '\r':
-                            result += '\\r';
-                            break;
-                        case '\t':
-                            result += '\\t';
-                            break;
-                        default:
-                            // Check for other control characters (0x00-0x1F)
-                            if (char.charCodeAt(0) < 32) {
-                                result += '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0');
-                            } else {
-                                result += char;
-                            }
-                            break;
-                    }
+                    finalResult += char;
+                } else if (inString && char === '"' && prevChar !== '\\') {
+                    // This is an unescaped quote within a string, escape it
+                    finalResult += '\\"';
                 } else {
-                    // Outside of strings, keep character as is
-                    result += char;
+                    finalResult += char;
                 }
                 
                 i++;
             }
             
-            return result;
+            return finalResult;
         }
         
         // Step 1: Extract content from markdown if present
