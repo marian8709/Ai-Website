@@ -308,49 +308,106 @@ function CodeView() {
         }
     };
 
-    // Convert WordPress PHP files to HTML for preview
+    // Enhanced WordPress preview conversion
     const getWordPressPreviewFiles = () => {
         if (environment !== 'wordpress') return files;
 
         const previewFiles = { ...files };
         
-        // Create an HTML preview from the WordPress PHP files
+        // Get WordPress files
         const indexPhp = files['/index.php']?.code || '';
         const headerPhp = files['/header.php']?.code || '';
         const footerPhp = files['/footer.php']?.code || '';
         const styleCss = files['/style.css']?.code || '';
+        const singlePhp = files['/single.php']?.code || '';
+        const pagePhp = files['/page.php']?.code || '';
+        const functionsPhp = files['/functions.php']?.code || '';
         
-        // Extract content between PHP tags and create a basic HTML structure
-        let htmlContent = indexPhp;
-        
-        // Remove PHP opening and closing tags
-        htmlContent = htmlContent.replace(/<\?php[\s\S]*?\?>/g, '');
-        
-        // Replace WordPress functions with static content
-        htmlContent = htmlContent.replace(/get_header\(\);?/g, '');
-        htmlContent = htmlContent.replace(/get_footer\(\);?/g, '');
-        htmlContent = htmlContent.replace(/the_title\(\);?/g, 'Sample WordPress Post Title');
-        htmlContent = htmlContent.replace(/the_content\(\);?/g, 'This is sample content for your WordPress theme. The actual content will be managed through the WordPress admin panel.');
-        htmlContent = htmlContent.replace(/the_author\(\);?/g, 'Admin');
-        htmlContent = htmlContent.replace(/get_the_date\(\);?/g, 'January 15, 2024');
-        htmlContent = htmlContent.replace(/bloginfo\(['"](.*?)['"]\);?/g, (match, p1) => {
+        // Create sample WordPress content
+        const samplePosts = [
+            {
+                title: "Welcome to Your WordPress Theme",
+                content: "This is a sample blog post to demonstrate how your WordPress theme looks. The theme includes modern styling, responsive design, and all the features you need for a professional website.",
+                author: "Admin",
+                date: "January 15, 2024",
+                category: "General"
+            },
+            {
+                title: "Another Sample Post",
+                content: "Here's another example of how your blog posts will appear. The theme supports featured images, categories, tags, and all standard WordPress functionality.",
+                author: "Editor",
+                date: "January 10, 2024",
+                category: "News"
+            }
+        ];
+
+        // Extract header content
+        let headerContent = headerPhp;
+        headerContent = headerContent.replace(/<\?php[\s\S]*?\?>/g, '');
+        headerContent = headerContent.replace(/wp_head\(\);?/g, '');
+        headerContent = headerContent.replace(/body_class\(\);?/g, 'class="wordpress-theme"');
+        headerContent = headerContent.replace(/language_attributes\(\);?/g, 'lang="en"');
+        headerContent = headerContent.replace(/bloginfo\(['"](.*?)['"]\);?/g, (match, p1) => {
+            if (p1 === 'charset') return 'UTF-8';
             if (p1 === 'name') return 'Your WordPress Site';
             if (p1 === 'description') return 'Just another WordPress site';
             return 'WordPress Site';
         });
-        htmlContent = htmlContent.replace(/home_url\(['"]\/(.*?)['"]\);?/g, '#');
-        htmlContent = htmlContent.replace(/esc_url\((.*?)\);?/g, '#');
-        htmlContent = htmlContent.replace(/esc_html\((.*?)\);?/g, '$1');
-        htmlContent = htmlContent.replace(/wp_nav_menu\([\s\S]*?\);?/g, `
-            <ul>
+
+        // Extract footer content
+        let footerContent = footerPhp;
+        footerContent = footerContent.replace(/<\?php[\s\S]*?\?>/g, '');
+        footerContent = footerContent.replace(/wp_footer\(\);?/g, '');
+
+        // Process main content
+        let mainContent = indexPhp;
+        mainContent = mainContent.replace(/get_header\(\);?\s*\?>/g, '');
+        mainContent = mainContent.replace(/<\?php\s*get_footer\(\);?/g, '');
+        
+        // Replace WordPress loop with sample content
+        const loopRegex = /while\s*\(\s*have_posts\(\)\s*\)\s*:\s*the_post\(\);?([\s\S]*?)endwhile;?/g;
+        mainContent = mainContent.replace(loopRegex, () => {
+            return samplePosts.map(post => `
+                <article class="post-article">
+                    <header class="entry-header">
+                        <h1 class="entry-title">${post.title}</h1>
+                        <div class="entry-meta">
+                            <span class="posted-on">${post.date}</span>
+                            <span class="byline">by ${post.author}</span>
+                        </div>
+                    </header>
+                    <div class="entry-content">
+                        <p>${post.content}</p>
+                    </div>
+                    <footer class="entry-footer">
+                        <div class="categories">Categories: <span class="category">${post.category}</span></div>
+                    </footer>
+                </article>
+            `).join('');
+        });
+
+        // Replace common WordPress functions
+        mainContent = mainContent.replace(/<\?php[\s\S]*?\?>/g, '');
+        mainContent = mainContent.replace(/the_title\(\);?/g, 'Sample WordPress Post Title');
+        mainContent = mainContent.replace(/the_content\(\);?/g, 'This is sample content for your WordPress theme. The actual content will be managed through the WordPress admin panel.');
+        mainContent = mainContent.replace(/the_author\(\);?/g, 'Admin');
+        mainContent = mainContent.replace(/get_the_date\(\);?/g, 'January 15, 2024');
+        mainContent = mainContent.replace(/home_url\(['"]\/(.*?)['"]\);?/g, '#');
+        mainContent = mainContent.replace(/esc_url\((.*?)\);?/g, '#');
+        mainContent = mainContent.replace(/esc_html\((.*?)\);?/g, '$1');
+        
+        // Replace navigation menus
+        mainContent = mainContent.replace(/wp_nav_menu\([\s\S]*?\);?/g, `
+            <ul class="nav-menu">
                 <li><a href="#home">Home</a></li>
                 <li><a href="#about">About</a></li>
                 <li><a href="#services">Services</a></li>
+                <li><a href="#blog">Blog</a></li>
                 <li><a href="#contact">Contact</a></li>
             </ul>
         `);
-        
-        // Create a complete HTML document
+
+        // Create complete HTML preview
         previewFiles['/index.html'] = {
             code: `<!DOCTYPE html>
 <html lang="en">
@@ -359,15 +416,96 @@ function CodeView() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WordPress Theme Preview</title>
     <style>
+        /* WordPress Theme Styles */
         ${styleCss}
+        
+        /* Additional preview styles */
+        .wordpress-theme {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .nav-menu {
+            display: flex;
+            list-style: none;
+            gap: 1rem;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .nav-menu a {
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .nav-menu a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .post-article {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .entry-title {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+        
+        .entry-meta {
+            color: #7f8c8d;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .entry-content p {
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        
+        .entry-footer {
+            border-top: 1px solid #eee;
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .category {
+            background: #3498db;
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .nav-menu {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .post-article {
+                padding: 1rem;
+            }
+        }
     </style>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    ${htmlContent}
+<body class="wordpress-theme">
+    ${headerContent}
+    
+    <main id="main" class="site-main">
+        ${mainContent}
+    </main>
+    
+    ${footerContent}
     
     <script>
-        // Add basic interactivity
+        // WordPress theme preview functionality
         document.addEventListener('DOMContentLoaded', function() {
             console.log('WordPress Theme Preview Loaded');
             
@@ -383,6 +521,38 @@ function CodeView() {
                     }
                 });
             });
+            
+            // Add mobile menu toggle if needed
+            const menuToggle = document.querySelector('.menu-toggle');
+            const navMenu = document.querySelector('.nav-menu');
+            
+            if (menuToggle && navMenu) {
+                menuToggle.addEventListener('click', function() {
+                    navMenu.classList.toggle('active');
+                });
+            }
+            
+            // Simulate WordPress admin bar (optional)
+            const adminBar = document.createElement('div');
+            adminBar.style.cssText = \`
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 32px;
+                background: #23282d;
+                color: #eee;
+                font-size: 13px;
+                line-height: 32px;
+                padding: 0 20px;
+                z-index: 99999;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            \`;
+            adminBar.innerHTML = '🔧 WordPress Theme Preview Mode - This is how your theme will look';
+            document.body.insertBefore(adminBar, document.body.firstChild);
+            
+            // Adjust body padding for admin bar
+            document.body.style.paddingTop = '32px';
         });
     </script>
 </body>
@@ -451,7 +621,7 @@ function CodeView() {
                             <>
                                 <SandpackPreview
                                     style={{ height: '80vh' }}
-                                    showNavigator={environment !== 'wordpress'}
+                                    showNavigator={true}
                                     showOpenInCodeSandbox={false}
                                     showRefreshButton={true}
                                 />
