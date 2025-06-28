@@ -26,96 +26,151 @@ export async function POST(req){
         const result = await GenAiCode.sendMessage(fullPrompt);
         let resp = result.response.text();
         
-        // Strip markdown code block delimiters if present
-        if (resp.startsWith('```json') && resp.endsWith('```')) {
-            resp = resp.slice(7, -3).trim();
-        } else if (resp.startsWith('```') && resp.endsWith('```')) {
-            // Handle cases where it might just be ``` without json
-            resp = resp.slice(3, -3).trim();
+        // Function to extract JSON from markdown code blocks
+        function extractFromMarkdown(text) {
+            // Remove markdown code block delimiters
+            if (text.startsWith('```json') && text.endsWith('```')) {
+                return text.slice(7, -3).trim();
+            } else if (text.startsWith('```') && text.endsWith('```')) {
+                return text.slice(3, -3).trim();
+            }
+            return text;
         }
         
-        // Attempt to parse JSON with better error handling
-        let parsedResponse;
-        try {
-            parsedResponse = JSON.parse(resp);
-        } catch (parseError) {
-            console.error('JSON parsing failed. Raw AI response:', resp);
-            console.error('Parse error:', parseError.message);
+        // Function to extract the main JSON object/array from text
+        function extractJsonContent(text) {
+            // Find the first opening brace or bracket
+            const firstBrace = text.indexOf('{');
+            const firstBracket = text.indexOf('[');
             
-            // Try to fix common JSON issues
-            let fixedResp = resp;
+            let startPos = -1;
+            let startChar = '';
+            let endChar = '';
             
-            // Fix unescaped quotes within string values
-            // This regex finds quotes that are not properly escaped within JSON string values
-            fixedResp = fixedResp.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match, content) => {
-                // Escape any unescaped quotes within the string content
-                const escapedContent = content.replace(/(?<!\\)"/g, '\\"');
-                return `"${escapedContent}"`;
-            });
-            
-            // Fix unterminated strings by finding and closing them
-            const stringMatches = fixedResp.match(/"[^"]*$/gm);
-            if (stringMatches) {
-                fixedResp = fixedResp + '"';
+            // Determine which comes first and set the corresponding end character
+            if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+                startPos = firstBrace;
+                startChar = '{';
+                endChar = '}';
+            } else if (firstBracket !== -1) {
+                startPos = firstBracket;
+                startChar = '[';
+                endChar = ']';
             }
             
-            // Try to fix missing closing braces/brackets
-            const openBraces = (fixedResp.match(/{/g) || []).length;
-            const closeBraces = (fixedResp.match(/}/g) || []).length;
-            const openBrackets = (fixedResp.match(/\[/g) || []).length;
-            const closeBrackets = (fixedResp.match(/\]/g) || []).length;
+            if (startPos === -1) {
+                return null; // No JSON structure found
+            }
+            
+            // Find the matching closing brace/bracket
+            let depth = 0;
+            let endPos = -1;
+            let inString = false;
+            let escapeNext = false;
+            
+            for (let i = startPos; i < text.length; i++) {
+                const char = text[i];
+                
+                if (escapeNext) {
+                    escapeNext = false;
+                    continue;
+                }
+                
+                if (char === '\\') {
+                    escapeNext = true;
+                    continue;
+                }
+                
+                if (char === '"' && !escapeNext) {
+                    inString = !inString;
+                    continue;
+                }
+                
+                if (!inString) {
+                    if (char === startChar) {
+                        depth++;
+                    } else if (char === endChar) {
+                        depth--;
+                        if (depth === 0) {
+                            endPos = i;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (endPos !== -1) {
+                return text.substring(startPos, endPos + 1);
+            }
+            
+            return null;
+        }
+        
+        // Function to fix basic JSON structural issues
+        function fixJsonStructure(jsonStr) {
+            let fixed = jsonStr.trim();
+            
+            // Count opening and closing braces/brackets
+            const openBraces = (fixed.match(/{/g) || []).length;
+            const closeBraces = (fixed.match(/}/g) || []).length;
+            const openBrackets = (fixed.match(/\[/g) || []).length;
+            const closeBrackets = (fixed.match(/\]/g) || []).length;
             
             // Add missing closing braces
             for (let i = 0; i < openBraces - closeBraces; i++) {
-                fixedResp += '}';
+                fixed += '}';
             }
             
             // Add missing closing brackets
             for (let i = 0; i < openBrackets - closeBrackets; i++) {
-                fixedResp += ']';
+                fixed += ']';
             }
             
+            return fixed;
+        }
+        
+        // Step 1: Extract content from markdown if present
+        let cleanedResp = extractFromMarkdown(resp);
+        
+        // Step 2: Extract the main JSON content
+        let jsonContent = extractJsonContent(cleanedResp);
+        
+        if (!jsonContent) {
+            console.error('No JSON structure found in AI response:', cleanedResp.substring(0, 200) + '...');
+            return NextResponse.json({
+                files: {},
+                error: 'No valid JSON structure found in AI response',
+                rawResponse: resp.substring(0, 500) + '...' // Truncate for debugging
+            });
+        }
+        
+        // Step 3: Attempt to parse the extracted JSON
+        let parsedResponse;
+        try {
+            parsedResponse = JSON.parse(jsonContent);
+        } catch (parseError) {
+            console.log('Initial JSON parse failed, attempting to fix structure...');
+            
+            // Step 4: Try to fix basic structural issues
+            const fixedJson = fixJsonStructure(jsonContent);
+            
             try {
-                parsedResponse = JSON.parse(fixedResp);
-                console.log('Successfully fixed and parsed JSON');
+                parsedResponse = JSON.parse(fixedJson);
+                console.log('Successfully parsed JSON after structural fixes');
             } catch (secondParseError) {
-                console.error('Failed to fix JSON. Second parse error:', secondParseError.message);
-                console.error('Fixed response that still failed:', fixedResp);
+                console.error('Failed to parse JSON even after fixes');
+                console.error('Original error:', parseError.message);
+                console.error('Second error:', secondParseError.message);
+                console.error('Extracted JSON (first 200 chars):', jsonContent.substring(0, 200));
+                console.error('Fixed JSON (first 200 chars):', fixedJson.substring(0, 200));
                 
-                // Try one more approach: attempt to extract JSON from the response
-                // Look for the first { and last } to extract potential JSON content
-                const firstBrace = fixedResp.indexOf('{');
-                const lastBrace = fixedResp.lastIndexOf('}');
-                
-                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-                    const extractedJson = fixedResp.substring(firstBrace, lastBrace + 1);
-                    try {
-                        parsedResponse = JSON.parse(extractedJson);
-                        console.log('Successfully extracted and parsed JSON');
-                    } catch (thirdParseError) {
-                        console.error('Final JSON extraction failed. Returning fallback response.');
-                        // Return a fallback response structure with full raw response for debugging
-                        return NextResponse.json({
-                            files: {},
-                            error: 'Failed to parse AI response as valid JSON',
-                            rawResponse: resp, // Include full response for debugging
-                            parseError: parseError.message,
-                            fixAttempts: {
-                                original: resp.substring(0, 200) + '...',
-                                fixed: fixedResp.substring(0, 200) + '...',
-                                extracted: extractedJson ? extractedJson.substring(0, 200) + '...' : 'No JSON found'
-                            }
-                        });
-                    }
-                } else {
-                    console.error('No valid JSON structure found. Returning fallback response.');
-                    return NextResponse.json({
-                        files: {},
-                        error: 'Failed to parse AI response as valid JSON - no JSON structure found',
-                        rawResponse: resp, // Include full response for debugging
-                        parseError: parseError.message
-                    });
-                }
+                return NextResponse.json({
+                    files: {},
+                    error: 'Failed to parse AI response as valid JSON',
+                    rawResponse: resp.substring(0, 500) + '...',
+                    extractedJson: jsonContent.substring(0, 200) + '...',
+                    parseError: parseError.message
+                });
             }
         }
         
