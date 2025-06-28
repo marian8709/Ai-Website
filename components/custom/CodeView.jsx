@@ -18,7 +18,7 @@ import { UpdateFiles } from '@/convex/workspace';
 import { useConvex, useMutation } from 'convex/react';
 import { useParams } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
-import { Loader2Icon, Download, Code2, Eye, Zap, FileCode, AlertTriangle, Clock } from 'lucide-react';
+import { Loader2Icon, Download, Code2, Eye, Zap, FileCode } from 'lucide-react';
 import JSZip from 'jszip';
 
 function CodeView() {
@@ -31,7 +31,6 @@ function CodeView() {
     const UpdateFiles = useMutation(api.workspace.UpdateFiles);
     const convex = useConvex();
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
         id && GetFiles();
@@ -85,8 +84,6 @@ function CodeView() {
 
     const GenerateAiCode = async () => {
         setLoading(true);
-        setError(null); // Clear previous errors
-        
         try {
             const PROMPT = JSON.stringify(messages);
             const result = await axios.post('/api/gen-ai-code', {
@@ -97,30 +94,7 @@ function CodeView() {
             // Check if the API returned an error
             if (result.data?.error) {
                 console.error('AI Code generation error:', result.data.error);
-                
-                // Handle specific error types
-                if (result.data.errorType === 'QUOTA_EXCEEDED') {
-                    setError({
-                        type: 'quota',
-                        message: result.data.userMessage || 'API quota exceeded. Please try again tomorrow.',
-                        details: 'You have reached the daily free tier limit for Google AI API. The quota resets every 24 hours.'
-                    });
-                } else if (result.data.errorType === 'QUOTA_LIMIT') {
-                    setError({
-                        type: 'quota',
-                        message: result.data.userMessage || 'API quota limit reached.',
-                        details: 'Please check your Google Cloud project billing and quota settings.'
-                    });
-                } else {
-                    setError({
-                        type: 'general',
-                        message: 'Failed to generate code. Please try again.',
-                        details: result.data.error
-                    });
-                }
-                
-                // Don't proceed with file updates if there's an error
-                return;
+                // Still try to process any files that might have been returned
             }
 
             // Ensure we have a files object, even if empty
@@ -147,21 +121,7 @@ function CodeView() {
             }
         } catch (error) {
             console.error('Error in GenerateAiCode:', error);
-            
-            // Handle network or other errors
-            if (error.response?.status === 429) {
-                setError({
-                    type: 'quota',
-                    message: 'API quota exceeded. Please try again tomorrow.',
-                    details: 'You have reached the daily free tier limit for Google AI API.'
-                });
-            } else {
-                setError({
-                    type: 'general',
-                    message: 'Failed to generate code. Please check your connection and try again.',
-                    details: error.message
-                });
-            }
+            // Don't call UpdateFiles if there was an error
         } finally {
             setLoading(false);
         }
@@ -659,48 +619,6 @@ function CodeView() {
                     </button>
                 </div>
             </div>
-
-            {/* Error Display */}
-            {error && (
-                <div className="glass-dark border border-red-400/20 w-full p-4 mb-4">
-                    <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0">
-                            {error.type === 'quota' ? (
-                                <Clock className="h-6 w-6 text-yellow-400" />
-                            ) : (
-                                <AlertTriangle className="h-6 w-6 text-red-400" />
-                            )}
-                        </div>
-                        <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-red-400 mb-2">
-                                {error.type === 'quota' ? 'API Quota Exceeded' : 'Generation Error'}
-                            </h3>
-                            <p className="text-gray-300 mb-2">{error.message}</p>
-                            {error.details && (
-                                <p className="text-gray-400 text-sm">{error.details}</p>
-                            )}
-                            {error.type === 'quota' && (
-                                <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                                    <p className="text-yellow-400 text-sm">
-                                        💡 <strong>Solutions:</strong>
-                                    </p>
-                                    <ul className="text-yellow-300 text-sm mt-1 space-y-1">
-                                        <li>• Wait 24 hours for quota reset</li>
-                                        <li>• Upgrade to a paid Google Cloud plan</li>
-                                        <li>• Request quota increase in Google Cloud Console</li>
-                                    </ul>
-                                </div>
-                            )}
-                            <button
-                                onClick={() => setError(null)}
-                                className="mt-3 px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"
-                            >
-                                Dismiss
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
             
             {/* Enhanced Code Editor */}
             <div className="code-editor-wrapper">

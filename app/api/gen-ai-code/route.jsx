@@ -103,63 +103,14 @@ export async function POST(req){
                 return text.substring(startPos, endPos + 1);
             }
             
-            // If no matching closing character found, return from start to end of text
-            // This allows fixJsonStructure to attempt to complete the JSON
-            return text.substring(startPos);
+            return null;
         }
         
         // Function to fix basic JSON structural issues
         function fixJsonStructure(jsonStr) {
             let fixed = jsonStr.trim();
             
-            // First, handle unterminated strings
-            let quoteCount = 0;
-            let inString = false;
-            let escapeNext = false;
-            let lastQuotePos = -1;
-            
-            // Count quotes and track string state
-            for (let i = 0; i < fixed.length; i++) {
-                const char = fixed[i];
-                
-                if (escapeNext) {
-                    escapeNext = false;
-                    continue;
-                }
-                
-                if (char === '\\') {
-                    escapeNext = true;
-                    continue;
-                }
-                
-                if (char === '"') {
-                    quoteCount++;
-                    lastQuotePos = i;
-                    inString = !inString;
-                }
-            }
-            
-            // If we have an odd number of quotes, we have an unterminated string
-            if (quoteCount % 2 !== 0) {
-                // Find the last position where we can safely add a closing quote
-                // Look for common JSON delimiters after the last quote
-                let insertPos = fixed.length;
-                
-                // Look backwards from the end to find a good place to close the string
-                for (let i = fixed.length - 1; i > lastQuotePos; i--) {
-                    const char = fixed[i];
-                    // If we find structural characters, insert the quote before them
-                    if (char === '}' || char === ']' || char === ',' || char === '\n' || char === '\r') {
-                        insertPos = i;
-                        break;
-                    }
-                }
-                
-                // Insert the closing quote
-                fixed = fixed.slice(0, insertPos) + '"' + fixed.slice(insertPos);
-            }
-            
-            // Then handle missing braces and brackets
+            // Count opening and closing braces/brackets
             const openBraces = (fixed.match(/{/g) || []).length;
             const closeBraces = (fixed.match(/}/g) || []).length;
             const openBrackets = (fixed.match(/\[/g) || []).length;
@@ -226,29 +177,8 @@ export async function POST(req){
         return NextResponse.json(parsedResponse);
     } catch (e) {
         console.error('Code generation error:', e);
-        
-        // Enhanced error handling for quota exceeded
-        if (e.message && e.message.includes('429')) {
-            return NextResponse.json({ 
-                error: 'API quota exceeded. Please wait for the daily quota to reset (24 hours) or upgrade your Google Cloud billing plan.',
-                errorType: 'QUOTA_EXCEEDED',
-                files: {},
-                userMessage: 'You have exceeded the daily free tier limit for the Google AI API. Please try again tomorrow or upgrade your plan.'
-            });
-        }
-        
-        if (e.message && e.message.includes('quota')) {
-            return NextResponse.json({ 
-                error: 'API quota limit reached. Please check your Google Cloud billing and quota settings.',
-                errorType: 'QUOTA_LIMIT',
-                files: {},
-                userMessage: 'API usage limit reached. Please check your Google Cloud project settings.'
-            });
-        }
-        
         return NextResponse.json({ 
             error: e.message,
-            errorType: 'GENERAL_ERROR',
             files: {} // Ensure files property exists even on error
         });
     }
