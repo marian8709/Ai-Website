@@ -18,7 +18,7 @@ import { UpdateFiles } from '@/convex/workspace';
 import { useConvex, useMutation } from 'convex/react';
 import { useParams } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
-import { Loader2Icon, Download, Code2, Eye, Zap, FileCode } from 'lucide-react';
+import { Loader2Icon, Download, Code2, Eye, Zap, FileCode, AlertTriangle, Clock, ExternalLink } from 'lucide-react';
 import JSZip from 'jszip';
 
 function CodeView() {
@@ -31,6 +31,7 @@ function CodeView() {
     const UpdateFiles = useMutation(api.workspace.UpdateFiles);
     const convex = useConvex();
     const [loading, setLoading] = useState(false);
+    const [quotaError, setQuotaError] = useState(null);
 
     useEffect(() => {
         id && GetFiles();
@@ -84,6 +85,8 @@ function CodeView() {
 
     const GenerateAiCode = async () => {
         setLoading(true);
+        setQuotaError(null); // Clear any previous quota errors
+        
         try {
             const PROMPT = JSON.stringify(messages);
             const result = await axios.post('/api/gen-ai-code', {
@@ -91,8 +94,18 @@ function CodeView() {
                 environment: environment
             });
 
+            // Check for quota exceeded error
+            if (result.data?.quotaExceeded || result.data?.error === 'QUOTA_EXCEEDED') {
+                setQuotaError({
+                    message: result.data.message || 'API quota exceeded',
+                    details: result.data.details || 'Please try again later'
+                });
+                setLoading(false);
+                return;
+            }
+
             // Check if the API returned an error
-            if (result.data?.error) {
+            if (result.data?.error && result.data.error !== 'QUOTA_EXCEEDED') {
                 console.error('AI Code generation error:', result.data.error);
                 // Still try to process any files that might have been returned
             }
@@ -121,7 +134,20 @@ function CodeView() {
             }
         } catch (error) {
             console.error('Error in GenerateAiCode:', error);
-            // Don't call UpdateFiles if there was an error
+            
+            // Check if it's a quota error from the response
+            if (error.response?.data?.quotaExceeded || error.response?.data?.error === 'QUOTA_EXCEEDED') {
+                setQuotaError({
+                    message: error.response.data.message || 'API quota exceeded',
+                    details: error.response.data.details || 'Please try again later'
+                });
+            } else {
+                // Handle other types of errors
+                setQuotaError({
+                    message: 'An error occurred while generating code',
+                    details: error.message || 'Please try again'
+                });
+            }
         } finally {
             setLoading(false);
         }
@@ -619,6 +645,41 @@ function CodeView() {
                     </button>
                 </div>
             </div>
+            
+            {/* Quota Error Banner */}
+            {quotaError && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                            <h3 className="text-amber-400 font-medium mb-1">API Quota Exceeded</h3>
+                            <p className="text-amber-200/80 text-sm mb-2">{quotaError.message}</p>
+                            <p className="text-amber-200/60 text-xs mb-3">{quotaError.details}</p>
+                            <div className="flex items-center gap-4 text-xs">
+                                <div className="flex items-center gap-1 text-amber-200/60">
+                                    <Clock className="h-3 w-3" />
+                                    <span>Quota resets in 24 hours</span>
+                                </div>
+                                <a 
+                                    href="https://ai.google.dev/gemini-api/docs/rate-limits" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-amber-400 hover:text-amber-300 transition-colors"
+                                >
+                                    <ExternalLink className="h-3 w-3" />
+                                    <span>Learn about quotas</span>
+                                </a>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setQuotaError(null)}
+                            className="text-amber-400/60 hover:text-amber-400 transition-colors"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
             
             {/* Enhanced Code Editor */}
             <div className="code-editor-wrapper">

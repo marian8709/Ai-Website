@@ -177,6 +177,28 @@ export async function POST(req){
         return NextResponse.json(parsedResponse);
     } catch (e) {
         console.error('Code generation error:', e);
+        
+        // Handle specific Google AI API errors
+        if (e.message && e.message.includes('429')) {
+            return NextResponse.json({ 
+                error: 'QUOTA_EXCEEDED',
+                message: 'Daily API quota exceeded. Please try again tomorrow or upgrade your plan.',
+                details: 'You have reached the daily limit of 50 requests for the Gemini API free tier.',
+                files: {},
+                quotaExceeded: true
+            });
+        }
+        
+        if (e.message && e.message.includes('quota')) {
+            return NextResponse.json({ 
+                error: 'QUOTA_EXCEEDED',
+                message: 'API quota exceeded. Please check your billing details or try again later.',
+                details: e.message,
+                files: {},
+                quotaExceeded: true
+            });
+        }
+        
         return NextResponse.json({ 
             error: e.message,
             files: {} // Ensure files property exists even on error
