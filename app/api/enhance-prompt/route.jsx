@@ -4,10 +4,27 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
     try {
-        const { prompt } = await request.json();
+        const { prompt, environment = 'react' } = await request.json();
+        
+        // Select the appropriate enhancement rules based on environment
+        let enhanceRules;
+        switch (environment.toLowerCase()) {
+            case 'react':
+                enhanceRules = Prompt.REACT_ENHANCE_PROMPT_RULES;
+                break;
+            case 'wordpress':
+                enhanceRules = Prompt.WORDPRESS_ENHANCE_PROMPT_RULES;
+                break;
+            case 'html':
+                enhanceRules = Prompt.HTML_ENHANCE_PROMPT_RULES;
+                break;
+            default:
+                enhanceRules = Prompt.ENHANCE_PROMPT_RULES;
+        }
         
         const result = await chatSession.sendMessage([
-            Prompt.ENHANCE_PROMPT_RULES,
+            enhanceRules,
+            `Environment: ${environment.toUpperCase()}`,
             `Original prompt: ${prompt}`
         ]);
         
@@ -22,4 +39,4 @@ export async function POST(request) {
             success: false 
         }, { status: 500 });
     }
-} 
+}

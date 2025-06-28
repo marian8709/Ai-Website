@@ -16,6 +16,7 @@ function ChatView() {
     const { messages, setMessages } = useContext(MessagesContext);
     const [userInput, setUserInput] = useState();
     const [loading, setLoading] = useState(false);
+    const [environment, setEnvironment] = useState('react');
     const UpdateMessages = useMutation(api.workspace.UpdateWorkspace);
 
     useEffect(() => {
@@ -27,6 +28,7 @@ function ChatView() {
             workspaceId: id
         });
         setMessages(result?.messages);
+        setEnvironment(result?.environment || 'react');
         console.log(result);
     }
 
@@ -61,13 +63,45 @@ function ChatView() {
     const onGenerate = (input) => {
         setMessages(prev => [...prev, {
             role: 'user',
-            content: input
+            content: input,
+            environment: environment
         }]);
         setUserInput('');
     }
 
+    const getEnvironmentBadge = () => {
+        const envColors = {
+            react: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+            wordpress: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+            html: 'bg-green-500/20 text-green-400 border-green-500/30'
+        };
+        
+        const envIcons = {
+            react: '⚛️',
+            wordpress: '📝',
+            html: '🌐'
+        };
+
+        return (
+            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium ${envColors[environment] || envColors.react}`}>
+                <span>{envIcons[environment] || envIcons.react}</span>
+                <span>{environment.toUpperCase()}</span>
+            </div>
+        );
+    };
+
     return (
         <div className="relative h-[85vh] flex flex-col bg-gray-900">
+            {/* Environment Badge */}
+            <div className="p-4 border-b border-gray-800">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-lg font-semibold text-white">Project Chat</h2>
+                        {getEnvironmentBadge()}
+                    </div>
+                </div>
+            </div>
+
             {/* Chat Messages */}
             <div className="flex-1 overflow-y-auto scrollbar-hide p-4">
                 <div className="max-w-4xl mx-auto space-y-4">
@@ -112,7 +146,7 @@ function ChatView() {
                     <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
                         <div className="flex gap-3">
                             <textarea
-                                placeholder="Type your message here..."
+                                placeholder={`Ask about your ${environment.toUpperCase()} project...`}
                                 value={userInput}
                                 onChange={(event) => setUserInput(event.target.value)}
                                 className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-4 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 resize-none h-32"

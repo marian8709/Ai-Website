@@ -1,14 +1,17 @@
 "use client"
 import Lookup from '@/data/Lookup';
+import EnvironmentConfig from '@/data/EnvironmentConfig';
 import { MessagesContext } from '@/context/MessagesContext';
 import { ArrowRight, Link, Sparkles, Send, Wand2, Loader2 } from 'lucide-react';
 import React, { useContext, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
+import EnvironmentSelector from './EnvironmentSelector';
 
 function Hero() {
     const [userInput, setUserInput] = useState('');
+    const [selectedEnvironment, setSelectedEnvironment] = useState('react');
     const [isEnhancing, setIsEnhancing] = useState(false);
     const { messages, setMessages } = useContext(MessagesContext);
     const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
@@ -17,11 +20,13 @@ function Hero() {
     const onGenerate = async (input) => {
         const msg = {
             role: 'user',
-            content: input
+            content: input,
+            environment: selectedEnvironment
         }
         setMessages(msg);
         const workspaceID = await CreateWorkspace({
-            messages: [msg]
+            messages: [msg],
+            environment: selectedEnvironment
         });
         router.push('/workspace/' + workspaceID);
     }
@@ -36,7 +41,10 @@ function Hero() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ prompt: userInput }),
+                body: JSON.stringify({ 
+                    prompt: userInput,
+                    environment: selectedEnvironment 
+                }),
             });
 
             const data = await response.json();
@@ -52,6 +60,43 @@ function Hero() {
 
     const onSuggestionClick = (suggestion) => {
         setUserInput(suggestion);
+    };
+
+    const getEnvironmentSuggestions = () => {
+        const env = EnvironmentConfig.ENVIRONMENTS[selectedEnvironment.toUpperCase()];
+        if (!env) return Lookup.SUGGSTIONS;
+        
+        switch (selectedEnvironment) {
+            case 'react':
+                return [
+                    'Create a modern e-commerce dashboard with React hooks',
+                    'Build a social media feed with infinite scrolling',
+                    'Develop a task management app with drag and drop',
+                    'Create a weather app with geolocation',
+                    'Build a music player with playlist management',
+                    'Develop a chat application with real-time messaging'
+                ];
+            case 'wordpress':
+                return [
+                    'Create a custom WordPress blog theme',
+                    'Build a business website theme with contact forms',
+                    'Develop a portfolio theme for photographers',
+                    'Create an e-commerce theme with WooCommerce',
+                    'Build a news/magazine theme with custom post types',
+                    'Develop a restaurant theme with menu management'
+                ];
+            case 'html':
+                return [
+                    'Create a responsive landing page for a startup',
+                    'Build a portfolio website with CSS animations',
+                    'Develop a restaurant website with online menu',
+                    'Create a corporate website with contact forms',
+                    'Build a photography portfolio with image gallery',
+                    'Develop a fitness website with class schedules'
+                ];
+            default:
+                return Lookup.SUGGSTIONS;
+        }
     };
 
     return (
@@ -75,9 +120,15 @@ function Hero() {
                             Code the <br className="md:hidden" />Impossible
                         </h1>
                         <p className="text-xl text-neon-cyan max-w-3xl mx-auto font-mono tracking-tight">
-                            Transform your wildest ideas into production-ready code with Ai-powered assistance
+                            Transform your wildest ideas into production-ready code with AI-powered assistance
                         </p>
                     </div>
+
+                    {/* Environment Selector */}
+                    <EnvironmentSelector 
+                        selectedEnvironment={selectedEnvironment}
+                        onEnvironmentChange={setSelectedEnvironment}
+                    />
 
                     {/* Modified Input Section */}
                     <div className="w-full max-w-3xl bg-gray-900/40 backdrop-blur-2xl rounded-xl border-2 border-electric-blue-500/40 shadow-[0_0_40px_5px_rgba(59,130,246,0.15)]">
@@ -85,7 +136,7 @@ function Hero() {
                             <div className="bg-gray-900/80 p-6 rounded-lg">
                                 <div className="flex gap-4">
                                     <textarea
-                                        placeholder="DESCRIBE YOUR VISION..."
+                                        placeholder={`DESCRIBE YOUR ${selectedEnvironment.toUpperCase()} PROJECT...`}
                                         value={userInput}
                                         onChange={(e) => setUserInput(e.target.value)}
                                         className="w-full bg-transparent border-2 border-electric-blue-500/30 rounded-lg p-5 text-gray-100 placeholder-electric-blue-500/60 focus:border-electric-blue-500 focus:ring-0 outline-none font-mono text-lg h-40 resize-none transition-all duration-300 hover:border-electric-blue-500/60"
@@ -123,10 +174,15 @@ function Hero() {
                         </div>
                     </div>
 
-                    {/* Holographic Suggestions Grid */}
+                    {/* Environment-specific Suggestions Grid */}
                     <div className="w-full max-w-5xl">
+                        <div className="text-center mb-6">
+                            <h3 className="text-lg font-semibold text-electric-blue-400 mb-2">
+                                {EnvironmentConfig.ENVIRONMENTS[selectedEnvironment.toUpperCase()]?.name} Project Ideas
+                            </h3>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {Lookup?.SUGGSTIONS.map((suggestion, index) => (
+                            {getEnvironmentSuggestions().map((suggestion, index) => (
                                 <button
                                     key={index}
                                     onClick={() => onSuggestionClick(suggestion)}
