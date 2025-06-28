@@ -45,6 +45,14 @@ export async function POST(req){
             // Try to fix common JSON issues
             let fixedResp = resp;
             
+            // Fix unescaped quotes within string values
+            // This regex finds quotes that are not properly escaped within JSON string values
+            fixedResp = fixedResp.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match, content) => {
+                // Escape any unescaped quotes within the string content
+                const escapedContent = content.replace(/(?<!\\)"/g, '\\"');
+                return `"${escapedContent}"`;
+            });
+            
             // Fix unterminated strings by finding and closing them
             const stringMatches = fixedResp.match(/"[^"]*$/gm);
             if (stringMatches) {
@@ -71,13 +79,43 @@ export async function POST(req){
                 parsedResponse = JSON.parse(fixedResp);
                 console.log('Successfully fixed and parsed JSON');
             } catch (secondParseError) {
-                console.error('Failed to fix JSON. Returning fallback response.');
-                // Return a fallback response structure
-                return NextResponse.json({
-                    files: {},
-                    error: 'Failed to parse AI response as valid JSON',
-                    rawResponse: resp.substring(0, 500) + '...' // Truncate for logging
-                });
+                console.error('Failed to fix JSON. Second parse error:', secondParseError.message);
+                console.error('Fixed response that still failed:', fixedResp);
+                
+                // Try one more approach: attempt to extract JSON from the response
+                // Look for the first { and last } to extract potential JSON content
+                const firstBrace = fixedResp.indexOf('{');
+                const lastBrace = fixedResp.lastIndexOf('}');
+                
+                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                    const extractedJson = fixedResp.substring(firstBrace, lastBrace + 1);
+                    try {
+                        parsedResponse = JSON.parse(extractedJson);
+                        console.log('Successfully extracted and parsed JSON');
+                    } catch (thirdParseError) {
+                        console.error('Final JSON extraction failed. Returning fallback response.');
+                        // Return a fallback response structure with full raw response for debugging
+                        return NextResponse.json({
+                            files: {},
+                            error: 'Failed to parse AI response as valid JSON',
+                            rawResponse: resp, // Include full response for debugging
+                            parseError: parseError.message,
+                            fixAttempts: {
+                                original: resp.substring(0, 200) + '...',
+                                fixed: fixedResp.substring(0, 200) + '...',
+                                extracted: extractedJson ? extractedJson.substring(0, 200) + '...' : 'No JSON found'
+                            }
+                        });
+                    }
+                } else {
+                    console.error('No valid JSON structure found. Returning fallback response.');
+                    return NextResponse.json({
+                        files: {},
+                        error: 'Failed to parse AI response as valid JSON - no JSON structure found',
+                        rawResponse: resp, // Include full response for debugging
+                        parseError: parseError.message
+                    });
+                }
             }
         }
         
