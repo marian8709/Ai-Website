@@ -8,10 +8,12 @@ import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
 import EnvironmentSelector from './EnvironmentSelector';
+import ProviderSelector from './ProviderSelector';
 
 function Hero() {
     const [userInput, setUserInput] = useState('');
     const [selectedEnvironment, setSelectedEnvironment] = useState('react');
+    const [selectedProvider, setSelectedProvider] = useState('auto');
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [particles, setParticles] = useState([]);
     const { messages, setMessages } = useContext(MessagesContext);
@@ -40,12 +42,14 @@ function Hero() {
         const msg = {
             role: 'user',
             content: input,
-            environment: selectedEnvironment
+            environment: selectedEnvironment,
+            provider: selectedProvider
         }
         setMessages(msg);
         const workspaceID = await CreateWorkspace({
             messages: [msg],
-            environment: selectedEnvironment
+            environment: selectedEnvironment,
+            provider: selectedProvider
         });
         router.push('/workspace/' + workspaceID);
     }
@@ -62,7 +66,8 @@ function Hero() {
                 },
                 body: JSON.stringify({ 
                     prompt: userInput,
-                    environment: selectedEnvironment 
+                    environment: selectedEnvironment,
+                    provider: selectedProvider
                 }),
             });
 
@@ -151,6 +156,14 @@ function Hero() {
                         <p className="text-lg text-cyan-400/80 font-mono tracking-tight">
                             Transform ideas into production-ready code
                         </p>
+                    </div>
+
+                    {/* Provider Selector */}
+                    <div className="w-full max-w-4xl animate-slide-in-up" style={{ animationDelay: '0.2s' }}>
+                        <ProviderSelector 
+                            selectedProvider={selectedProvider}
+                            onProviderChange={setSelectedProvider}
+                        />
                     </div>
 
                     {/* Compact Environment Selector */}
