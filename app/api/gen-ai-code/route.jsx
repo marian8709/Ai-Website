@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
-import { GenAiCode, checkProviderStatus } from '@/configs/AiModel';
+import { GenAiCode } from '@/configs/AiModel';
 import Prompt from '@/data/Prompt';
 
 export async function POST(req){
     const { prompt, environment = 'react' } = await req.json();
     
     try {
-        // Check provider status
-        const providerStatus = await checkProviderStatus();
-        console.log('Provider status:', providerStatus);
-        
         // Select the appropriate code generation prompt based on environment
         let codeGenPrompt;
         switch (environment.toLowerCase()) {
@@ -144,8 +140,7 @@ export async function POST(req){
             return NextResponse.json({
                 files: {},
                 error: 'No valid JSON structure found in AI response',
-                rawResponse: resp.substring(0, 500) + '...',
-                provider: providerStatus.activeProvider
+                rawResponse: resp.substring(0, 500) + '...' // Truncate for debugging
             });
         }
         
@@ -174,57 +169,17 @@ export async function POST(req){
                     error: 'Failed to parse AI response as valid JSON',
                     rawResponse: resp.substring(0, 500) + '...',
                     extractedJson: jsonContent.substring(0, 200) + '...',
-                    parseError: parseError.message,
-                    provider: providerStatus.activeProvider
+                    parseError: parseError.message
                 });
             }
         }
         
-        // Add provider info to response
-        parsedResponse.provider = providerStatus.activeProvider;
-        
         return NextResponse.json(parsedResponse);
     } catch (e) {
         console.error('Code generation error:', e);
-        
-        // Handle specific Google AI API errors
-        if (e.message && e.message.includes('429')) {
-            return NextResponse.json({ 
-                error: 'QUOTA_EXCEEDED',
-                message: 'Daily API quota exceeded. Please try again tomorrow or upgrade your plan.',
-                details: 'You have reached the daily limit of 50 requests for the Gemini API free tier.',
-                files: {},
-                quotaExceeded: true,
-                provider: 'gemini'
-            });
-        }
-        
-        if (e.message && e.message.includes('quota')) {
-            return NextResponse.json({ 
-                error: 'QUOTA_EXCEEDED',
-                message: 'API quota exceeded. Please check your billing details or try again later.',
-                details: e.message,
-                files: {},
-                quotaExceeded: true,
-                provider: 'gemini'
-            });
-        }
-        
-        // Handle DeepSeek specific errors
-        if (e.message && e.message.includes('DeepSeek')) {
-            return NextResponse.json({ 
-                error: 'DEEPSEEK_ERROR',
-                message: 'DeepSeek API error occurred.',
-                details: e.message,
-                files: {},
-                provider: 'deepseek'
-            });
-        }
-        
         return NextResponse.json({ 
             error: e.message,
-            files: {},
-            provider: 'unknown'
+            files: {} // Ensure files property exists even on error
         });
     }
 }

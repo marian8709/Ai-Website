@@ -1,52 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Code, Sparkles, Zap, Cpu, Brain } from 'lucide-react';
+import React from 'react';
+import { Code, Sparkles, Zap } from 'lucide-react';
 
 function Header() {
-    const [providerStatus, setProviderStatus] = useState({
-        gemini: false,
-        deepseek: false,
-        activeProvider: null
-    });
-
-    useEffect(() => {
-        // Check provider status on component mount
-        checkProviders();
-    }, []);
-
-    const checkProviders = async () => {
-        try {
-            const response = await fetch('/api/provider-status');
-            if (response.ok) {
-                const status = await response.json();
-                setProviderStatus(status);
-            }
-        } catch (error) {
-            console.error('Failed to check provider status:', error);
-        }
-    };
-
-    const getProviderIcon = (provider) => {
-        switch (provider) {
-            case 'gemini':
-                return <Sparkles className="h-4 w-4" />;
-            case 'deepseek':
-                return <Brain className="h-4 w-4" />;
-            default:
-                return <Cpu className="h-4 w-4" />;
-        }
-    };
-
-    const getProviderName = (provider) => {
-        switch (provider) {
-            case 'gemini':
-                return 'Gemini';
-            case 'deepseek':
-                return 'DeepSeek';
-            default:
-                return 'AI';
-        }
-    };
-
     return (
         <header className="border-b border-gray-800/50 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50 transition-all duration-300">
             <div className="container mx-auto px-4">
@@ -64,55 +19,20 @@ function Header() {
                                 AI Website Builder
                             </h1>
                             <span className="text-xs text-cyan-400/70 font-medium tracking-wide">
-                                Multi-Provider AI Platform
+                                Next-Gen Development
                             </span>
                         </div>
                     </div>
 
-                    {/* Enhanced Status Badges */}
+                    {/* Interactive Status Badge */}
                     <div className="flex items-center space-x-4">
-                        {/* Provider Status */}
-                        <div className="hidden md:flex items-center space-x-3">
-                            {/* Active Provider Badge */}
-                            {providerStatus.activeProvider && (
-                                <div className="flex items-center space-x-2 glass-dark px-4 py-2 rounded-full border border-cyan-400/20 hover-lift group">
-                                    <div className="relative">
-                                        {getProviderIcon(providerStatus.activeProvider)}
-                                        <div className="absolute inset-0 bg-cyan-400 rounded-full blur-sm opacity-30 animate-pulse"></div>
-                                    </div>
-                                    <span className="text-cyan-400 text-sm font-medium">
-                                        {getProviderName(providerStatus.activeProvider)}
-                                    </span>
-                                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                </div>
-                            )}
-
-                            {/* Fallback Providers Indicator */}
-                            <div className="flex items-center space-x-1">
-                                {providerStatus.gemini && (
-                                    <div className={`w-2 h-2 rounded-full ${
-                                        providerStatus.activeProvider === 'gemini' 
-                                            ? 'bg-green-400 animate-pulse' 
-                                            : 'bg-yellow-400'
-                                    }`} title="Gemini Available" />
-                                )}
-                                {providerStatus.deepseek && (
-                                    <div className={`w-2 h-2 rounded-full ${
-                                        providerStatus.activeProvider === 'deepseek' 
-                                            ? 'bg-green-400 animate-pulse' 
-                                            : 'bg-blue-400'
-                                    }`} title="DeepSeek Available" />
-                                )}
-                            </div>
-                        </div>
-
-                        {/* AI Status Badge */}
-                        <div className="flex items-center space-x-2 glass-dark px-4 py-2 rounded-full border border-cyan-400/20 hover-lift group">
+                        {/* AI Status */}
+                        <div className="hidden md:flex items-center space-x-2 glass-dark px-4 py-2 rounded-full border border-cyan-400/20 hover-lift group">
                             <div className="relative">
                                 <Zap className="h-4 w-4 text-cyan-400 animate-pulse" />
                                 <div className="absolute inset-0 bg-cyan-400 rounded-full blur-sm opacity-30 animate-pulse"></div>
                             </div>
-                            <span className="text-cyan-400 text-sm font-medium">Multi-AI</span>
+                            <span className="text-cyan-400 text-sm font-medium">AI Active</span>
                             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                         </div>
 
