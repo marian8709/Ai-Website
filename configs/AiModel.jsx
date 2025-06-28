@@ -7,8 +7,10 @@ const {
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 
+// Try using gemini-1.5-flash instead of gemini-2.0-flash-exp
+// This model may have different quota limits
 const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-1.5-flash",
 });
 
 const generationConfig = {

@@ -177,8 +177,29 @@ export async function POST(req){
         return NextResponse.json(parsedResponse);
     } catch (e) {
         console.error('Code generation error:', e);
+        
+        // Enhanced error handling for quota exceeded
+        if (e.message && e.message.includes('429')) {
+            return NextResponse.json({ 
+                error: 'API quota exceeded. Please wait for the daily quota to reset (24 hours) or upgrade your Google Cloud billing plan.',
+                errorType: 'QUOTA_EXCEEDED',
+                files: {},
+                userMessage: 'You have exceeded the daily free tier limit for the Google AI API. Please try again tomorrow or upgrade your plan.'
+            });
+        }
+        
+        if (e.message && e.message.includes('quota')) {
+            return NextResponse.json({ 
+                error: 'API quota limit reached. Please check your Google Cloud billing and quota settings.',
+                errorType: 'QUOTA_LIMIT',
+                files: {},
+                userMessage: 'API usage limit reached. Please check your Google Cloud project settings.'
+            });
+        }
+        
         return NextResponse.json({ 
             error: e.message,
+            errorType: 'GENERAL_ERROR',
             files: {} // Ensure files property exists even on error
         });
     }
