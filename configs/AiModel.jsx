@@ -10,11 +10,11 @@ const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 const deepseekApiKey = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY;
 
-const genAI = new GoogleGenerativeAI(apiKey);
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-const model = genAI.getGenerativeModel({
+const model = genAI ? genAI.getGenerativeModel({
     model: "gemini-2.0-flash-exp",
-});
+}) : null;
 
 const generationConfig = {
     temperature: 1,
@@ -47,18 +47,18 @@ class AIProviderError extends Error {
         this.name = 'AIProviderError';
         this.provider = provider;
         this.originalError = originalError;
-        this.isQuotaError = message.includes('429') || message.includes('quota');
+        this.isQuotaError = message.includes('429') || message.includes('quota') || message.includes('exceeded');
     }
 }
 
 // DeepSeek API call function
 async function callDeepSeekAPI(prompt, isCodeGeneration = false) {
-    if (!deepseekApiKey) {
+    if (!deepseekApiKey || deepseekApiKey === 'your_deepseek_api_key_here') {
         throw new AIProviderError('DeepSeek API key not configured', 'deepseek');
     }
 
     const systemPrompt = isCodeGeneration 
-        ? "You are an expert software developer. Generate clean, production-ready code following best practices. Always respond with valid JSON format when requested."
+        ? "You are an expert software developer. Generate clean, production-ready code following best practices. Always respond with valid JSON format when requested. Focus on creating functional React applications with modern components and proper structure."
         : "You are a helpful AI assistant specialized in software development and web technologies.";
 
     try {
@@ -114,6 +114,15 @@ async function callDeepSeekAPI(prompt, isCodeGeneration = false) {
 // Enhanced chat session with fallback
 export const chatSession = {
     async sendMessage(prompt) {
+        // Try DeepSeek first if Gemini is not available or if we know it's quota exceeded
+        if (!apiKey || !model) {
+            console.log('Gemini not configured, using DeepSeek...');
+            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
+                return await callDeepSeekAPI(prompt, false);
+            }
+            throw new AIProviderError('No AI providers configured', 'none');
+        }
+
         let geminiError = null;
         
         try {
@@ -132,7 +141,7 @@ export const chatSession = {
             geminiError = new AIProviderError(error.message, 'gemini', error);
             
             // Fallback to DeepSeek
-            if (deepseekApiKey) {
+            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
                 try {
                     return await callDeepSeekAPI(prompt, false);
                 } catch (deepseekError) {
@@ -152,6 +161,15 @@ export const chatSession = {
 // Enhanced code generation with fallback
 export const GenAiCode = {
     async sendMessage(prompt) {
+        // Try DeepSeek first if Gemini is not available
+        if (!apiKey || !model) {
+            console.log('Gemini not configured, using DeepSeek for code generation...');
+            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
+                return await callDeepSeekAPI(prompt, true);
+            }
+            throw new AIProviderError('No AI providers configured for code generation', 'none');
+        }
+
         let geminiError = null;
         
         try {
@@ -183,7 +201,7 @@ export const GenAiCode = {
             geminiError = new AIProviderError(error.message, 'gemini', error);
             
             // Fallback to DeepSeek
-            if (deepseekApiKey) {
+            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
                 try {
                     return await callDeepSeekAPI(prompt, true);
                 } catch (deepseekError) {
@@ -203,6 +221,15 @@ export const GenAiCode = {
 // Enhanced prompt enhancement with fallback
 export const enhancePromptSession = {
     async sendMessage(prompt) {
+        // Try DeepSeek first if Gemini is not available
+        if (!apiKey || !model) {
+            console.log('Gemini not configured, using DeepSeek for prompt enhancement...');
+            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
+                return await callDeepSeekAPI(prompt, false);
+            }
+            throw new AIProviderError('No AI providers configured for prompt enhancement', 'none');
+        }
+
         let geminiError = null;
         
         try {
@@ -221,7 +248,7 @@ export const enhancePromptSession = {
             geminiError = new AIProviderError(error.message, 'gemini', error);
             
             // Fallback to DeepSeek
-            if (deepseekApiKey) {
+            if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
                 try {
                     return await callDeepSeekAPI(prompt, false);
                 } catch (deepseekError) {
@@ -246,29 +273,29 @@ export const checkProviderStatus = async () => {
         activeProvider: null
     };
 
-    // Check Gemini
+    // Check DeepSeek first (since it's more reliable)
     try {
-        if (apiKey) {
-            const testSession = model.startChat({ generationConfig });
-            await testSession.sendMessage("test");
-            status.gemini = true;
-            status.activeProvider = 'gemini';
-        }
-    } catch (error) {
-        console.log('Gemini unavailable:', error.message);
-    }
-
-    // Check DeepSeek
-    try {
-        if (deepseekApiKey) {
+        if (deepseekApiKey && deepseekApiKey !== 'your_deepseek_api_key_here') {
             await callDeepSeekAPI("test", false);
             status.deepseek = true;
-            if (!status.activeProvider) {
-                status.activeProvider = 'deepseek';
-            }
+            status.activeProvider = 'deepseek';
         }
     } catch (error) {
         console.log('DeepSeek unavailable:', error.message);
+    }
+
+    // Check Gemini
+    try {
+        if (apiKey && apiKey !== 'your_gemini_api_key_here' && model) {
+            const testSession = model.startChat({ generationConfig });
+            await testSession.sendMessage("test");
+            status.gemini = true;
+            if (!status.activeProvider) {
+                status.activeProvider = 'gemini';
+            }
+        }
+    } catch (error) {
+        console.log('Gemini unavailable:', error.message);
     }
 
     return status;

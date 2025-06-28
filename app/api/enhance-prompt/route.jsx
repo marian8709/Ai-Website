@@ -10,6 +10,16 @@ export async function POST(request) {
         const providerStatus = await checkProviderStatus();
         console.log('Enhance prompt provider status:', providerStatus);
         
+        // If no providers are available, return error immediately
+        if (!providerStatus.activeProvider) {
+            return NextResponse.json({
+                error: 'NO_PROVIDERS_AVAILABLE',
+                message: 'No AI providers are currently available. Please check your API keys.',
+                success: false,
+                provider: 'none'
+            }, { status: 500 });
+        }
+        
         // Select the appropriate enhancement rules based on environment
         let enhanceRules;
         switch (environment.toLowerCase()) {
@@ -33,26 +43,32 @@ export async function POST(request) {
         ]);
         
         const text = result.response.text();
+        const usedProvider = result.provider || 'unknown';
+        
+        console.log(`Prompt enhanced using ${usedProvider} provider`);
         
         return NextResponse.json({
             enhancedPrompt: text.trim(),
-            provider: providerStatus.activeProvider
+            provider: usedProvider
         });
     } catch (error) {
         console.error('Enhance prompt error:', error);
         
+        // Get the provider from the error if it's an AIProviderError
+        const errorProvider = error.provider || 'unknown';
+        
         // Handle quota exceeded errors
-        if (error.message && (error.message.includes('429') || error.message.includes('quota'))) {
+        if (error.message && (error.message.includes('429') || error.message.includes('quota') || error.message.includes('exceeded'))) {
             return NextResponse.json({ 
                 error: 'QUOTA_EXCEEDED',
-                message: 'API quota exceeded. Please try again later.',
+                message: `API quota exceeded for ${errorProvider}. ${errorProvider === 'gemini' ? 'Switching to alternative provider...' : 'Please try again later.'}`,
                 success: false,
-                provider: 'gemini'
+                provider: errorProvider
             }, { status: 429 });
         }
         
         // Handle DeepSeek errors
-        if (error.message && error.message.includes('DeepSeek')) {
+        if (errorProvider === 'deepseek' || (error.message && error.message.includes('DeepSeek'))) {
             return NextResponse.json({ 
                 error: 'DEEPSEEK_ERROR',
                 message: 'DeepSeek API error occurred.',
@@ -61,10 +77,20 @@ export async function POST(request) {
             }, { status: 500 });
         }
         
+        // Handle Gemini errors
+        if (errorProvider === 'gemini' || (error.message && error.message.includes('GoogleGenerativeAI'))) {
+            return NextResponse.json({ 
+                error: 'GEMINI_ERROR',
+                message: 'Gemini API error occurred. Switching to alternative provider...',
+                success: false,
+                provider: 'gemini'
+            }, { status: 500 });
+        }
+        
         return NextResponse.json({ 
-            error: error.message,
+            error: error.message || 'Unknown error occurred',
             success: false,
-            provider: 'unknown'
+            provider: errorProvider
         }, { status: 500 });
     }
 }

@@ -10,6 +10,16 @@ export async function POST(req){
         const providerStatus = await checkProviderStatus();
         console.log('Provider status:', providerStatus);
         
+        // If no providers are available, return error immediately
+        if (!providerStatus.activeProvider) {
+            return NextResponse.json({
+                error: 'NO_PROVIDERS_AVAILABLE',
+                message: 'No AI providers are currently available. Please check your API keys.',
+                files: {},
+                provider: 'none'
+            });
+        }
+        
         // Select the appropriate code generation prompt based on environment
         let codeGenPrompt;
         switch (environment.toLowerCase()) {
@@ -30,6 +40,8 @@ export async function POST(req){
         const result = await GenAiCode.sendMessage(fullPrompt);
         let resp = result.response.text();
         const usedProvider = result.provider || 'unknown';
+        
+        console.log(`Code generated using ${usedProvider} provider`);
         
         // Function to extract JSON from markdown code blocks
         function extractFromMarkdown(text) {
@@ -116,12 +128,10 @@ export async function POST(req){
             let fixed = jsonStr.trim();
             
             // Fix malformed content immediately after opening braces/brackets
-            // Remove leading commas, colons, or other invalid characters after { or [
             fixed = fixed.replace(/(\{)\s*[,:;]+\s*/g, '$1');
             fixed = fixed.replace(/(\[)\s*[,:;]+\s*/g, '$1');
             
             // Fix malformed content immediately before closing braces/brackets
-            // Remove trailing commas, colons, or other invalid characters before } or ]
             fixed = fixed.replace(/\s*[,:;]+\s*(\})/g, '$1');
             fixed = fixed.replace(/\s*[,:;]+\s*(\])/g, '$1');
             
@@ -150,54 +160,6 @@ export async function POST(req){
             return fixed;
         }
         
-        // Function to escape problematic JSON characters using regex
-        function escapeProblematicJsonChars(jsonStr) {
-            // First, handle control characters (ASCII 0x00-0x1F) by converting them to Unicode escapes
-            let result = jsonStr.replace(/[\x00-\x1F]/g, function(match) {
-                const code = match.charCodeAt(0);
-                return '\\u' + code.toString(16).padStart(4, '0');
-            });
-            
-            // Then handle backslashes that are not part of valid JSON escape sequences
-            // This regex matches backslashes that are NOT followed by valid JSON escape characters
-            result = result.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
-            
-            return result;
-        }
-        
-        // Function to quote unquoted property names in JSON
-        function quoteUnquotedKeys(jsonStr) {
-            let result = jsonStr;
-            
-            // Pattern to match unquoted keys followed by a colon
-            // This regex looks for word characters (letters, numbers, underscore) that are not already quoted
-            // and are followed by optional whitespace and a colon
-            const unquotedKeyPattern = /(\{|,)\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g;
-            
-            result = result.replace(unquotedKeyPattern, function(match, prefix, key) {
-                return `${prefix}"${key}":`;
-            });
-            
-            // Also handle cases where there might be spaces around the key
-            const unquotedKeyWithSpacesPattern = /(\{|,)\s*([a-zA-Z_$][a-zA-Z0-9_$\s]*[a-zA-Z0-9_$])\s*:/g;
-            
-            result = result.replace(unquotedKeyWithSpacesPattern, function(match, prefix, key) {
-                // Only quote if the key doesn't already have quotes
-                if (!key.includes('"')) {
-                    return `${prefix}"${key.trim()}":`;
-                }
-                return match;
-            });
-            
-            // Handle edge case where the first property doesn't have a comma before it
-            const firstUnquotedKeyPattern = /^\s*\{\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/;
-            result = result.replace(firstUnquotedKeyPattern, function(match, key) {
-                return `{"${key}":`;
-            });
-            
-            return result;
-        }
-        
         // Step 1: Extract content from markdown if present
         let cleanedResp = extractFromMarkdown(resp);
         
@@ -214,46 +176,25 @@ export async function POST(req){
             });
         }
         
-        // Step 3: Fix basic structural issues first
-        let fixedJsonContent = fixJsonStructure(jsonContent);
-        
-        // Step 4: Escape problematic characters after fixing structure
-        let escapedJsonContent = escapeProblematicJsonChars(fixedJsonContent);
-        
-        // Step 5: Quote unquoted keys
-        let quotedJsonContent = quoteUnquotedKeys(escapedJsonContent);
-        
-        // Step 6: Attempt to parse the fixed and escaped JSON
+        // Step 3: Attempt to parse the extracted JSON
         let parsedResponse;
         try {
-            parsedResponse = JSON.parse(quotedJsonContent);
+            parsedResponse = JSON.parse(jsonContent);
         } catch (parseError) {
-            console.log('Initial JSON parse failed, attempting additional fixes...');
+            console.log('Initial JSON parse failed, attempting to fix structure...');
             
-            // Step 7: Try more aggressive fixes if the first attempt fails
-            let aggressivelyFixed = fixedJsonContent;
-            
-            // Remove any non-printable characters that might be causing issues
-            aggressivelyFixed = aggressivelyFixed.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-            
-            // Try to fix common JSON syntax errors
-            aggressivelyFixed = aggressivelyFixed.replace(/,(\s*[}\]])/g, '$1'); // Remove trailing commas
-            aggressivelyFixed = aggressivelyFixed.replace(/([}\]])(\s*)(["\w])/g, '$1,$2$3'); // Add missing commas between objects
-            
-            const reEscapedJson = escapeProblematicJsonChars(aggressivelyFixed);
-            const reQuotedJson = quoteUnquotedKeys(reEscapedJson);
+            // Step 4: Try to fix basic structural issues
+            const fixedJson = fixJsonStructure(jsonContent);
             
             try {
-                parsedResponse = JSON.parse(reQuotedJson);
-                console.log('Successfully parsed JSON after aggressive fixes and escaping');
+                parsedResponse = JSON.parse(fixedJson);
+                console.log('Successfully parsed JSON after structural fixes');
             } catch (secondParseError) {
-                console.error('Failed to parse JSON even after aggressive fixes and escaping');
+                console.error('Failed to parse JSON even after fixes');
                 console.error('Original error:', parseError.message);
                 console.error('Second error:', secondParseError.message);
-                console.error('Original JSON (first 200 chars):', jsonContent.substring(0, 200));
-                console.error('Fixed JSON (first 200 chars):', fixedJsonContent.substring(0, 200));
-                console.error('Escaped JSON (first 200 chars):', escapedJsonContent.substring(0, 200));
-                console.error('Quoted JSON (first 200 chars):', quotedJsonContent.substring(0, 200));
+                console.error('Extracted JSON (first 200 chars):', jsonContent.substring(0, 200));
+                console.error('Fixed JSON (first 200 chars):', fixedJson.substring(0, 200));
                 
                 return NextResponse.json({
                     files: {},
@@ -261,7 +202,6 @@ export async function POST(req){
                     rawResponse: resp.substring(0, 500) + '...',
                     extractedJson: jsonContent.substring(0, 200) + '...',
                     parseError: parseError.message,
-                    secondParseError: secondParseError.message,
                     provider: usedProvider
                 });
             }
@@ -277,25 +217,14 @@ export async function POST(req){
         // Get the provider from the error if it's an AIProviderError
         const errorProvider = e.provider || 'unknown';
         
-        // Handle specific Google AI API errors
-        if (e.message && e.message.includes('429')) {
+        // Handle specific quota errors
+        if (e.message && (e.message.includes('429') || e.message.includes('quota') || e.message.includes('exceeded'))) {
             return NextResponse.json({ 
                 error: 'QUOTA_EXCEEDED',
-                message: `Daily API quota exceeded for ${errorProvider}. Please try again tomorrow or upgrade your plan.`,
+                message: `API quota exceeded for ${errorProvider}. ${errorProvider === 'gemini' ? 'Trying alternative provider...' : 'Please try again later.'}`,
                 details: errorProvider === 'gemini' 
-                    ? 'You have reached the daily limit of 50 requests for the Gemini API free tier.'
-                    : 'API quota exceeded for the current provider.',
-                files: {},
-                quotaExceeded: true,
-                provider: errorProvider
-            });
-        }
-        
-        if (e.message && e.message.includes('quota')) {
-            return NextResponse.json({ 
-                error: 'QUOTA_EXCEEDED',
-                message: `API quota exceeded for ${errorProvider}. Please check your billing details or try again later.`,
-                details: e.message,
+                    ? 'Gemini API quota exceeded. The system should automatically switch to DeepSeek.'
+                    : e.message,
                 files: {},
                 quotaExceeded: true,
                 provider: errorProvider
@@ -317,7 +246,7 @@ export async function POST(req){
         if (errorProvider === 'gemini' || (e.message && e.message.includes('GoogleGenerativeAI'))) {
             return NextResponse.json({ 
                 error: 'GEMINI_ERROR',
-                message: 'Gemini API error occurred.',
+                message: 'Gemini API error occurred. Switching to alternative provider...',
                 details: e.message,
                 files: {},
                 provider: 'gemini'
@@ -325,7 +254,7 @@ export async function POST(req){
         }
         
         return NextResponse.json({ 
-            error: e.message,
+            error: e.message || 'Unknown error occurred',
             files: {},
             provider: errorProvider
         });
