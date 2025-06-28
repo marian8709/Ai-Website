@@ -265,8 +265,9 @@ function CodeView() {
             case 'react':
                 return '/index.js';
             case 'html':
-            case 'wordpress':
                 return '/index.html';
+            case 'wordpress':
+                return '/preview.html'; // Special preview file for WordPress
             default:
                 return '/index.js';
         }
@@ -285,6 +286,149 @@ function CodeView() {
             default:
                 return ['https://cdn.tailwindcss.com'];
         }
+    };
+
+    // Create a preview HTML file for WordPress
+    const getWordPressPreviewFiles = () => {
+        if (environment !== 'wordpress') return files;
+
+        const previewFiles = { ...files };
+        
+        // Create a preview HTML file that shows the WordPress theme structure
+        previewFiles['/preview.html'] = {
+            code: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordPress Theme Preview</title>
+    <style>
+        ${files['/style.css']?.code || ''}
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div class="preview-notice" style="background: #0073aa; color: white; padding: 10px; text-align: center; font-family: Arial, sans-serif;">
+        <strong>WordPress Theme Preview</strong> - This is a static preview of your WordPress theme
+    </div>
+    
+    <!-- Simulate WordPress header -->
+    <header id="masthead" class="site-header">
+        <div class="container">
+            <div class="site-branding">
+                <h1 class="site-title">
+                    <a href="#" rel="home">Your WordPress Site</a>
+                </h1>
+                <p class="site-description">Just another WordPress site</p>
+            </div>
+            <nav id="site-navigation" class="main-navigation">
+                <ul>
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#services">Services</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Simulate WordPress content -->
+    <main id="main" class="site-main">
+        <div class="container">
+            <article class="post-article">
+                <header class="entry-header">
+                    <h1 class="entry-title">Welcome to Your WordPress Theme</h1>
+                    <div class="entry-meta">
+                        <span class="posted-on">January 15, 2024</span>
+                        <span class="byline">by Admin</span>
+                    </div>
+                </header>
+                
+                <div class="post-thumbnail">
+                    <img src="https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?ixlib=rb-4.0.3&auto=format&fit=crop&w=2072&q=80" alt="Featured Image" style="width: 100%; height: 300px; object-fit: cover; border-radius: 8px;">
+                </div>
+                
+                <div class="entry-content">
+                    <p>This is a preview of your WordPress theme. The actual theme will be generated with proper PHP files that can be uploaded to your WordPress installation.</p>
+                    <p>Your theme includes:</p>
+                    <ul>
+                        <li>✅ Responsive design</li>
+                        <li>✅ Modern CSS styling</li>
+                        <li>✅ WordPress template hierarchy</li>
+                        <li>✅ Custom post type support</li>
+                        <li>✅ Widget areas</li>
+                        <li>✅ Navigation menus</li>
+                    </ul>
+                    <p>To use this theme, download the files and upload them to your WordPress /wp-content/themes/ directory.</p>
+                </div>
+                
+                <footer class="entry-footer">
+                    <div class="categories">
+                        <span class="category">WordPress</span>
+                        <span class="category">Themes</span>
+                        <span class="category">Design</span>
+                    </div>
+                </footer>
+            </article>
+
+            <!-- Sample second post -->
+            <article class="post-article">
+                <header class="entry-header">
+                    <h2 class="entry-title">Another Sample Post</h2>
+                    <div class="entry-meta">
+                        <span class="posted-on">January 10, 2024</span>
+                        <span class="byline">by Editor</span>
+                    </div>
+                </header>
+                
+                <div class="entry-content">
+                    <p>This is another sample post to show how your WordPress theme handles multiple posts on the homepage.</p>
+                    <p>The theme is fully responsive and includes all the necessary WordPress template files.</p>
+                </div>
+                
+                <footer class="entry-footer">
+                    <div class="categories">
+                        <span class="category">Sample</span>
+                        <span class="category">Content</span>
+                    </div>
+                </footer>
+            </article>
+        </div>
+    </main>
+
+    <!-- Simulate WordPress footer -->
+    <footer id="colophon" class="site-footer">
+        <div class="container">
+            <div class="site-info">
+                <p>&copy; 2024 Your WordPress Site. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Add some basic interactivity for the preview
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('WordPress Theme Preview Loaded');
+            
+            // Smooth scrolling for navigation
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>`
+        };
+
+        return previewFiles;
     };
 
     return (
@@ -318,7 +462,7 @@ function CodeView() {
                 </div>
             </div>
             <SandpackProvider
-                files={files}
+                files={environment === 'wordpress' ? getWordPressPreviewFiles() : files}
                 template={getSandpackTemplate()}
                 theme={'dark'}
                 customSetup={{
