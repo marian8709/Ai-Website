@@ -29,6 +29,7 @@ export async function POST(req){
         const fullPrompt = `${prompt}\n\n${codeGenPrompt}`;
         const result = await GenAiCode.sendMessage(fullPrompt);
         let resp = result.response.text();
+        const usedProvider = result.provider || 'unknown';
         
         // Function to extract JSON from markdown code blocks
         function extractFromMarkdown(text) {
@@ -145,7 +146,7 @@ export async function POST(req){
                 files: {},
                 error: 'No valid JSON structure found in AI response',
                 rawResponse: resp.substring(0, 500) + '...',
-                provider: providerStatus.activeProvider
+                provider: usedProvider
             });
         }
         
@@ -175,43 +176,48 @@ export async function POST(req){
                     rawResponse: resp.substring(0, 500) + '...',
                     extractedJson: jsonContent.substring(0, 200) + '...',
                     parseError: parseError.message,
-                    provider: providerStatus.activeProvider
+                    provider: usedProvider
                 });
             }
         }
         
         // Add provider info to response
-        parsedResponse.provider = providerStatus.activeProvider;
+        parsedResponse.provider = usedProvider;
         
         return NextResponse.json(parsedResponse);
     } catch (e) {
         console.error('Code generation error:', e);
         
+        // Get the provider from the error if it's an AIProviderError
+        const errorProvider = e.provider || 'unknown';
+        
         // Handle specific Google AI API errors
         if (e.message && e.message.includes('429')) {
             return NextResponse.json({ 
                 error: 'QUOTA_EXCEEDED',
-                message: 'Daily API quota exceeded. Please try again tomorrow or upgrade your plan.',
-                details: 'You have reached the daily limit of 50 requests for the Gemini API free tier.',
+                message: `Daily API quota exceeded for ${errorProvider}. Please try again tomorrow or upgrade your plan.`,
+                details: errorProvider === 'gemini' 
+                    ? 'You have reached the daily limit of 50 requests for the Gemini API free tier.'
+                    : 'API quota exceeded for the current provider.',
                 files: {},
                 quotaExceeded: true,
-                provider: 'gemini'
+                provider: errorProvider
             });
         }
         
         if (e.message && e.message.includes('quota')) {
             return NextResponse.json({ 
                 error: 'QUOTA_EXCEEDED',
-                message: 'API quota exceeded. Please check your billing details or try again later.',
+                message: `API quota exceeded for ${errorProvider}. Please check your billing details or try again later.`,
                 details: e.message,
                 files: {},
                 quotaExceeded: true,
-                provider: 'gemini'
+                provider: errorProvider
             });
         }
         
         // Handle DeepSeek specific errors
-        if (e.message && e.message.includes('DeepSeek')) {
+        if (errorProvider === 'deepseek' || (e.message && e.message.includes('DeepSeek'))) {
             return NextResponse.json({ 
                 error: 'DEEPSEEK_ERROR',
                 message: 'DeepSeek API error occurred.',
@@ -221,10 +227,21 @@ export async function POST(req){
             });
         }
         
+        // Handle Gemini specific errors
+        if (errorProvider === 'gemini' || (e.message && e.message.includes('GoogleGenerativeAI'))) {
+            return NextResponse.json({ 
+                error: 'GEMINI_ERROR',
+                message: 'Gemini API error occurred.',
+                details: e.message,
+                files: {},
+                provider: 'gemini'
+            });
+        }
+        
         return NextResponse.json({ 
             error: e.message,
             files: {},
-            provider: 'unknown'
+            provider: errorProvider
         });
     }
 }
