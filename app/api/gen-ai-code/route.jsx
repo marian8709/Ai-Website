@@ -110,10 +110,6 @@ export async function POST(req){
         function fixJsonStructure(jsonStr) {
             let fixed = jsonStr.trim();
             
-            // Fix escaped characters - replace invalid escape sequences
-            // This handles backslashes that aren't part of valid JSON escape sequences
-            fixed = fixed.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
-            
             // Count opening and closing braces/brackets
             const openBraces = (fixed.match(/{/g) || []).length;
             const closeBraces = (fixed.match(/}/g) || []).length;

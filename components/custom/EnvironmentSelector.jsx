@@ -1,86 +1,50 @@
 "use client"
 import React from 'react';
 import EnvironmentConfig from '@/data/EnvironmentConfig';
-import { Check, Zap } from 'lucide-react';
 
 function EnvironmentSelector({ selectedEnvironment, onEnvironmentChange }) {
     const environments = EnvironmentConfig.ENVIRONMENTS;
 
     return (
-        <div className="w-full max-w-4xl mb-8">
-            <div className="text-center mb-8">
-                <h3 className="text-2xl font-semibold text-cyan-400 mb-3 neon-text">
+        <div className="w-full max-w-3xl mb-8">
+            <div className="text-center mb-6">
+                <h3 className="text-xl font-semibold text-blue-400 mb-2">
                     Choose Development Environment
                 </h3>
-                <p className="text-gray-400 text-lg">
+                <p className="text-gray-400 text-sm">
                     Select the technology stack for your project
                 </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {Object.values(environments).map((env, index) => (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {Object.values(environments).map((env) => (
                     <button
                         key={env.id}
                         onClick={() => onEnvironmentChange(env.id)}
-                        className={`group relative p-8 rounded-2xl border-2 transition-all duration-500 hover-lift interactive-card ${
+                        className={`group relative p-6 rounded-xl border-2 transition-all duration-300 ${
                             selectedEnvironment === env.id
-                                ? 'border-cyan-400 bg-cyan-400/10 shadow-[0_0_30px_5px_rgba(34,211,238,0.3)] animate-pulse-glow'
-                                : 'border-cyan-400/20 glass-dark hover:border-cyan-400/40'
+                                ? 'border-blue-500 bg-blue-500/10 shadow-[0_0_20px_2px_rgba(59,130,246,0.3)]'
+                                : 'border-blue-500/20 bg-gray-900/50 hover:border-blue-500/40 hover:bg-gray-800/60'
                         }`}
-                        style={{ animationDelay: `${index * 0.2}s` }}
                     >
-                        {/* Selection indicator */}
-                        {selectedEnvironment === env.id && (
-                            <div className="absolute top-4 right-4 w-6 h-6 bg-turquoise-gradient rounded-full flex items-center justify-center animate-scale-in">
-                                <Check className="w-4 h-4 text-white" />
-                            </div>
-                        )}
-                        
-                        {/* Hover glow effect */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/5 to-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
-                        
-                        <div className="text-center relative z-10">
-                            <div className={`text-6xl mb-4 transition-transform duration-300 group-hover:scale-110 ${
-                                selectedEnvironment === env.id ? 'animate-bounce' : ''
-                            }`}>
-                                {env.icon}
-                            </div>
-                            
-                            <h4 className={`text-xl font-bold mb-3 transition-all duration-300 ${
+                        <div className="text-center">
+                            <div className="text-4xl mb-3">{env.icon}</div>
+                            <h4 className={`text-lg font-semibold mb-2 transition-colors duration-300 ${
                                 selectedEnvironment === env.id
-                                    ? 'text-cyan-400 neon-text'
-                                    : 'text-gray-300 group-hover:text-cyan-400'
+                                    ? 'text-blue-400'
+                                    : 'text-gray-300 group-hover:text-blue-400'
                             }`}>
                                 {env.name}
                             </h4>
-                            
-                            <p className="text-gray-400 leading-relaxed mb-4 group-hover:text-gray-300 transition-colors duration-300">
+                            <p className="text-sm text-gray-400 leading-relaxed">
                                 {env.description}
                             </p>
-                            
-                            {/* Tech stack indicators */}
-                            <div className="flex items-center justify-center space-x-2 mt-4">
-                                <Zap className={`h-4 w-4 transition-colors duration-300 ${
-                                    selectedEnvironment === env.id ? 'text-cyan-400' : 'text-gray-500'
-                                }`} />
-                                <span className={`text-xs font-medium transition-colors duration-300 ${
-                                    selectedEnvironment === env.id ? 'text-cyan-400' : 'text-gray-500'
-                                }`}>
-                                    {env.id === 'react' && 'Modern React + Vite'}
-                                    {env.id === 'wordpress' && 'PHP + WordPress'}
-                                    {env.id === 'html' && 'HTML5 + CSS3 + JS'}
-                                </span>
-                            </div>
                         </div>
                         
-                        {/* Bottom accent line */}
-                        <div className={`absolute bottom-0 left-0 h-1 bg-turquoise-gradient transition-all duration-500 rounded-b-2xl ${
-                            selectedEnvironment === env.id ? 'w-full' : 'w-0 group-hover:w-full'
-                        }`} />
-                        
-                        {/* Pulse effect for selected */}
                         {selectedEnvironment === env.id && (
-                            <div className="absolute inset-0 border-2 border-cyan-400 rounded-2xl animate-ping opacity-20" />
+                            <div className="absolute top-2 right-2">
+                                <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                            </div>
                         )}
                     </button>
                 ))}

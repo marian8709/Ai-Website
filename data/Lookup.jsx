@@ -33,53 +33,6 @@ export default {
             @tailwind components;
             @tailwind utilities;`
         },
-        '/package.json': {
-            code: `{
-  "name": "react-app",
-  "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
-    "@google/generative-ai": "^0.21.0",
-    "@heroicons/react": "^1.0.6",
-    "@headlessui/react": "^1.7.17",
-    "firebase": "^11.1.0",
-    "framer-motion": "^10.0.0",
-    "lucide-react": "latest",
-    "react-icons": "^5.0.0",
-    "react-router-dom": "latest",
-    "react-toastify": "^10.0.0",
-    "tailwind-merge": "^2.4.0",
-    "tailwindcss": "^3.4.1",
-    "tailwindcss-animate": "^1.0.7",
-    "uuid4": "^2.0.3",
-    "uuidv4": "^6.2.13",
-    "uuid": "^11.1.0",
-    "@mui/material": "^6.4.6",
-    "react-beautiful-dnd": "^13.1.1"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  }
-}`
-        },
         '/tailwind.config.js': {
             code: `/** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -107,9 +60,6 @@ export default config;
         },
 
     DEPENDANCY: {
-            "react": "^18.2.0",
-            "react-dom": "^18.2.0",
-            "react-scripts": "5.0.1",
             "@google/generative-ai": "^0.21.0",
             "@heroicons/react": "^1.0.6",
     "@headlessui/react": "^1.7.17",
@@ -118,6 +68,8 @@ export default config;
     "framer-motion": "^10.0.0",
     "lucide-react": "latest",
     "postcss": "^8",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-icons": "^5.0.0",
     "react-router-dom": "latest",
     "react-toastify": "^10.0.0",
@@ -127,7 +79,6 @@ export default config;
     "uuid4": "^2.0.3",
     "uuidv4": "^6.2.13",
     "uuid": "^11.1.0",
-    "@mui/material": "^6.4.6",
-    "react-beautiful-dnd": "^13.1.1"
+    "@mui/material": "^6.4.6"
         }
     }
