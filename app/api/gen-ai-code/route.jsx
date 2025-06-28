@@ -3,7 +3,7 @@ import { GenAiCode, checkProviderStatus } from '@/configs/AiModel';
 import Prompt from '@/data/Prompt';
 
 export async function POST(req){
-    const { prompt, environment = 'react', provider = 'auto' } = await req.json();
+    const { prompt, environment = 'react' } = await req.json();
     
     try {
         // Check provider status
@@ -26,7 +26,7 @@ export async function POST(req){
                 codeGenPrompt = Prompt.CODE_GEN_PROMPT; // fallback to React
         }
         
-        const fullPrompt = `${prompt}\n\n${codeGenPrompt}\n\nPreferred Provider: ${provider}`;
+        const fullPrompt = `${prompt}\n\n${codeGenPrompt}`;
         const result = await GenAiCode.sendMessage(fullPrompt);
         let resp = result.response.text();
         const usedProvider = result.provider || 'unknown';

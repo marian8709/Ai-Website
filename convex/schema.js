@@ -12,6 +12,5 @@ export default defineSchema({
         messages: v.any(),
         fileData: v.optional(v.any()),
         environment: v.optional(v.string()),
-        provider: v.optional(v.string()),
     })
 });

@@ -5,13 +5,11 @@ export const CreateWorkspace = mutation({
     args: {
         messages: v.any(),
         environment: v.optional(v.string()),
-        provider: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const workspaceId = await ctx.db.insert('workspace', {
             messages: args.messages,
-            environment: args.environment || 'react',
-            provider: args.provider || 'auto'
+            environment: args.environment || 'react'
         });
         return workspaceId;
     }

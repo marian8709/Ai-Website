@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
     try {
-        const { prompt, environment = 'react', provider = 'auto' } = await request.json();
+        const { prompt, environment = 'react' } = await request.json();
         
         // Check provider status
         const providerStatus = await checkProviderStatus();
@@ -29,35 +29,30 @@ export async function POST(request) {
         const result = await enhancePromptSession.sendMessage([
             enhanceRules,
             `Environment: ${environment.toUpperCase()}`,
-            `Preferred Provider: ${provider}`,
             `Original prompt: ${prompt}`
         ]);
         
         const text = result.response.text();
-        const usedProvider = result.provider || 'unknown';
         
         return NextResponse.json({
             enhancedPrompt: text.trim(),
-            provider: usedProvider
+            provider: providerStatus.activeProvider
         });
     } catch (error) {
         console.error('Enhance prompt error:', error);
-        
-        // Get the provider from the error if it's an AIProviderError
-        const errorProvider = error.provider || 'unknown';
         
         // Handle quota exceeded errors
         if (error.message && (error.message.includes('429') || error.message.includes('quota'))) {
             return NextResponse.json({ 
                 error: 'QUOTA_EXCEEDED',
-                message: `API quota exceeded for ${errorProvider}. Please try again later.`,
+                message: 'API quota exceeded. Please try again later.',
                 success: false,
-                provider: errorProvider
+                provider: 'gemini'
             }, { status: 429 });
         }
         
         // Handle DeepSeek errors
-        if (errorProvider === 'deepseek' || (error.message && error.message.includes('DeepSeek'))) {
+        if (error.message && error.message.includes('DeepSeek')) {
             return NextResponse.json({ 
                 error: 'DEEPSEEK_ERROR',
                 message: 'DeepSeek API error occurred.',
@@ -66,20 +61,10 @@ export async function POST(request) {
             }, { status: 500 });
         }
         
-        // Handle Gemini errors
-        if (errorProvider === 'gemini' || (error.message && error.message.includes('GoogleGenerativeAI'))) {
-            return NextResponse.json({ 
-                error: 'GEMINI_ERROR',
-                message: 'Gemini API error occurred.',
-                success: false,
-                provider: 'gemini'
-            }, { status: 500 });
-        }
-        
         return NextResponse.json({ 
             error: error.message,
             success: false,
-            provider: errorProvider
+            provider: 'unknown'
         }, { status: 500 });
     }
 }
