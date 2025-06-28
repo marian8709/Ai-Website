@@ -103,7 +103,9 @@ export async function POST(req){
                 return text.substring(startPos, endPos + 1);
             }
             
-            return null;
+            // If no matching closing character found, return from start to end of text
+            // This allows fixJsonStructure to attempt to complete the JSON
+            return text.substring(startPos);
         }
         
         // Function to fix basic JSON structural issues
