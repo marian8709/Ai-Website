@@ -24,7 +24,15 @@ export async function POST(req){
         
         const fullPrompt = `${prompt}\n\n${codeGenPrompt}`;
         const result = await GenAiCode.sendMessage(fullPrompt);
-        const resp = result.response.text();
+        let resp = result.response.text();
+        
+        // Strip markdown code block delimiters if present
+        if (resp.startsWith('```json') && resp.endsWith('```')) {
+            resp = resp.slice(7, -3).trim();
+        } else if (resp.startsWith('```') && resp.endsWith('```')) {
+            // Handle cases where it might just be ``` without json
+            resp = resp.slice(3, -3).trim();
+        }
         
         return NextResponse.json(JSON.parse(resp));
     } catch (e) {
