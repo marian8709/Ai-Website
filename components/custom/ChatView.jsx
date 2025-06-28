@@ -1,6 +1,6 @@
 "use client"
 import { MessagesContext } from '@/context/MessagesContext';
-import { ArrowRight, Link, Loader2Icon, Send, Sparkles, Bot, User, Zap, Brain, Cpu } from 'lucide-react';
+import { ArrowRight, Link, Loader2Icon, Send, Sparkles, Bot, User, Zap } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import { useConvex } from 'convex/react';
 import { useParams } from 'next/navigation';
@@ -17,31 +17,12 @@ function ChatView() {
     const [userInput, setUserInput] = useState();
     const [loading, setLoading] = useState(false);
     const [environment, setEnvironment] = useState('react');
-    const [selectedProvider, setSelectedProvider] = useState('auto');
     const [isTyping, setIsTyping] = useState(false);
-    const [providerStatus, setProviderStatus] = useState({
-        gemini: false,
-        deepseek: false,
-        activeProvider: null
-    });
     const UpdateMessages = useMutation(api.workspace.UpdateWorkspace);
 
     useEffect(() => {
         id && GetWorkSpaceData();
-        checkProviders();
     }, [id])
-
-    const checkProviders = async () => {
-        try {
-            const response = await fetch('/api/provider-status');
-            if (response.ok) {
-                const status = await response.json();
-                setProviderStatus(status);
-            }
-        } catch (error) {
-            console.error('Failed to check provider status:', error);
-        }
-    };
 
     const GetWorkSpaceData = async () => {
         const result = await convex.query(api.workspace.GetWorkspace, {
@@ -49,7 +30,6 @@ function ChatView() {
         });
         setMessages(result?.messages);
         setEnvironment(result?.environment || 'react');
-        setSelectedProvider(result?.provider || 'auto');
         console.log(result);
     }
 
@@ -68,8 +48,7 @@ function ChatView() {
         
         const PROMPT = JSON.stringify(messages) + Prompt.CHAT_PROMPT;
         const result = await axios.post('/api/ai-chat', {
-            prompt: PROMPT,
-            provider: selectedProvider
+            prompt: PROMPT
         });
 
         const aiResp = {
@@ -87,16 +66,11 @@ function ChatView() {
     }
 
     const onGenerate = (input) => {
-        if (!input || input.trim() === '') return;
-        
-        const newMessage = {
+        setMessages(prev => [...prev, {
             role: 'user',
             content: input,
-            environment: environment,
-            provider: selectedProvider
-        };
-        
-        setMessages(prev => [...prev, newMessage]);
+            environment: environment
+        }]);
         setUserInput('');
     }
 
@@ -122,63 +96,6 @@ function ChatView() {
         );
     };
 
-    const getProviderIcon = (provider) => {
-        switch (provider) {
-            case 'gemini':
-                return <Sparkles className="h-4 w-4" />;
-            case 'deepseek':
-                return <Brain className="h-4 w-4" />;
-            case 'auto':
-                return <Zap className="h-4 w-4" />;
-            default:
-                return <Cpu className="h-4 w-4" />;
-        }
-    };
-
-    const getProviderName = (provider) => {
-        switch (provider) {
-            case 'gemini':
-                return 'Gemini';
-            case 'deepseek':
-                return 'DeepSeek';
-            case 'auto':
-                return 'Auto';
-            default:
-                return 'AI';
-        }
-    };
-
-    const getAvailableProviders = () => {
-        const providers = [];
-        
-        providers.push({
-            id: 'auto',
-            name: 'Auto',
-            icon: <Zap className="h-4 w-4" />,
-            available: providerStatus.gemini || providerStatus.deepseek
-        });
-        
-        if (providerStatus.deepseek) {
-            providers.push({
-                id: 'deepseek',
-                name: 'DeepSeek',
-                icon: <Brain className="h-4 w-4" />,
-                available: true
-            });
-        }
-        
-        if (providerStatus.gemini) {
-            providers.push({
-                id: 'gemini',
-                name: 'Gemini',
-                icon: <Sparkles className="h-4 w-4" />,
-                available: true
-            });
-        }
-        
-        return providers;
-    };
-
     return (
         <div className="relative h-[85vh] flex flex-col glass-dark border border-cyan-400/20 rounded-xl overflow-hidden">
             {/* Enhanced Header */}
@@ -200,33 +117,9 @@ function ChatView() {
                         {getEnvironmentBadge()}
                     </div>
                     
-                    {/* Minimal Provider Selector */}
-                    <div className="flex items-center space-x-3">
-                        <div className="flex items-center space-x-2 glass-dark px-3 py-2 rounded-full border border-cyan-400/20">
-                            <span className="text-xs text-gray-400">AI:</span>
-                            <select
-                                value={selectedProvider}
-                                onChange={(e) => setSelectedProvider(e.target.value)}
-                                className="bg-transparent text-cyan-400 text-sm font-medium border-none outline-none cursor-pointer"
-                            >
-                                {getAvailableProviders().map(provider => (
-                                    <option 
-                                        key={provider.id} 
-                                        value={provider.id}
-                                        className="bg-slate-800 text-cyan-400"
-                                        disabled={!provider.available}
-                                    >
-                                        {provider.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {getProviderIcon(selectedProvider)}
-                        </div>
-                        
-                        <div className="flex items-center space-x-2 text-cyan-400/60 text-sm">
-                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                            <span>Online</span>
-                        </div>
+                    <div className="flex items-center space-x-2 text-cyan-400/60 text-sm">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span>Online</span>
                     </div>
                 </div>
             </div>
@@ -327,7 +220,7 @@ function ChatView() {
                                     value={userInput}
                                     onChange={(event) => setUserInput(event.target.value)}
                                     onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && e.ctrlKey && userInput?.trim()) {
+                                        if (e.key === 'Enter' && e.ctrlKey && userInput) {
                                             onGenerate(userInput);
                                         }
                                     }}
@@ -336,7 +229,7 @@ function ChatView() {
                                 <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/5 to-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                             </div>
                             
-                            {userInput?.trim() && (
+                            {userInput && (
                                 <button
                                     onClick={() => onGenerate(userInput)}
                                     className="group relative overflow-hidden bg-turquoise-gradient hover:scale-105 rounded-xl px-6 py-4 transition-all duration-300 hover-lift animate-pulse-glow"
@@ -350,7 +243,7 @@ function ChatView() {
                         <div className="flex justify-between items-center mt-4">
                             <div className="flex items-center space-x-2 text-cyan-400/60 text-sm">
                                 <Link className="h-4 w-4" />
-                                <span>AI-powered assistance with {getProviderName(selectedProvider)}</span>
+                                <span>AI-powered assistance</span>
                             </div>
                             <div className="flex items-center space-x-2 text-cyan-400/60 text-sm">
                                 <span>Ctrl+Enter to send</span>

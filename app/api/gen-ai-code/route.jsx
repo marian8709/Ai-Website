@@ -134,17 +134,42 @@ export async function POST(req){
             return fixed;
         }
         
-        // Simplified function to clean problematic characters
+        // Function to escape problematic JSON characters using regex
         function escapeProblematicJsonChars(jsonStr) {
-            // Remove or replace control characters (ASCII 0x00-0x1F) except valid JSON whitespace
-            // Valid JSON whitespace: space (0x20), tab (0x09), newline (0x0A), carriage return (0x0D)
-            let result = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+            // First, handle control characters (ASCII 0x00-0x1F) by converting them to Unicode escapes
+            let result = jsonStr.replace(/[\x00-\x1F]/g, function(match) {
+                const code = match.charCodeAt(0);
+                return '\\u' + code.toString(16).padStart(4, '0');
+            });
             
-            // Fix backslashes that are not part of valid JSON escape sequences
+            // Then handle backslashes that are not part of valid JSON escape sequences
             // This regex matches backslashes that are NOT followed by valid JSON escape characters
             result = result.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
             
-            return result;
+            // Handle any remaining unescaped quotes within strings
+            // This is more complex as we need to track string boundaries
+            let finalResult = '';
+            let inString = false;
+            let i = 0;
+            
+            while (i < result.length) {
+                const char = result[i];
+                const prevChar = i > 0 ? result[i - 1] : '';
+                
+                if (char === '"' && prevChar !== '\\') {
+                    inString = !inString;
+                    finalResult += char;
+                } else if (inString && char === '"' && prevChar !== '\\') {
+                    // This is an unescaped quote within a string, escape it
+                    finalResult += '\\"';
+                } else {
+                    finalResult += char;
+                }
+                
+                i++;
+            }
+            
+            return finalResult;
         }
         
         // Step 1: Extract content from markdown if present
@@ -163,30 +188,30 @@ export async function POST(req){
             });
         }
         
-        // Step 3: Clean problematic characters before parsing
-        let cleanedJsonContent = escapeProblematicJsonChars(jsonContent);
+        // Step 3: Escape problematic characters before parsing
+        let escapedJsonContent = escapeProblematicJsonChars(jsonContent);
         
-        // Step 4: Attempt to parse the cleaned JSON
+        // Step 4: Attempt to parse the escaped JSON
         let parsedResponse;
         try {
-            parsedResponse = JSON.parse(cleanedJsonContent);
+            parsedResponse = JSON.parse(escapedJsonContent);
         } catch (parseError) {
             console.log('Initial JSON parse failed, attempting to fix structure...');
             
-            // Step 5: Try to fix basic structural issues and re-clean
+            // Step 5: Try to fix basic structural issues and re-escape
             const fixedJson = fixJsonStructure(jsonContent);
-            const cleanedFixedJson = escapeProblematicJsonChars(fixedJson);
+            const escapedFixedJson = escapeProblematicJsonChars(fixedJson);
             
             try {
-                parsedResponse = JSON.parse(cleanedFixedJson);
-                console.log('Successfully parsed JSON after structural fixes and cleaning');
+                parsedResponse = JSON.parse(escapedFixedJson);
+                console.log('Successfully parsed JSON after structural fixes and escaping');
             } catch (secondParseError) {
-                console.error('Failed to parse JSON even after fixes and cleaning');
+                console.error('Failed to parse JSON even after fixes and escaping');
                 console.error('Original error:', parseError.message);
                 console.error('Second error:', secondParseError.message);
                 console.error('Extracted JSON (first 200 chars):', jsonContent.substring(0, 200));
-                console.error('Cleaned JSON (first 200 chars):', cleanedJsonContent.substring(0, 200));
-                console.error('Fixed and cleaned JSON (first 200 chars):', cleanedFixedJson.substring(0, 200));
+                console.error('Escaped JSON (first 200 chars):', escapedJsonContent.substring(0, 200));
+                console.error('Fixed and escaped JSON (first 200 chars):', escapedFixedJson.substring(0, 200));
                 
                 return NextResponse.json({
                     files: {},
