@@ -115,6 +115,22 @@ export async function POST(req){
         function fixJsonStructure(jsonStr) {
             let fixed = jsonStr.trim();
             
+            // Fix malformed content immediately after opening braces/brackets
+            // Remove leading commas, colons, or other invalid characters after { or [
+            fixed = fixed.replace(/(\{)\s*[,:;]+\s*/g, '$1');
+            fixed = fixed.replace(/(\[)\s*[,:;]+\s*/g, '$1');
+            
+            // Fix malformed content immediately before closing braces/brackets
+            // Remove trailing commas, colons, or other invalid characters before } or ]
+            fixed = fixed.replace(/\s*[,:;]+\s*(\})/g, '$1');
+            fixed = fixed.replace(/\s*[,:;]+\s*(\])/g, '$1');
+            
+            // Remove any duplicate commas
+            fixed = fixed.replace(/,\s*,+/g, ',');
+            
+            // Fix missing commas between properties (basic case)
+            fixed = fixed.replace(/"\s*"([^:])/g, '", "$1');
+            
             // Count opening and closing braces/brackets
             const openBraces = (fixed.match(/{/g) || []).length;
             const closeBraces = (fixed.match(/}/g) || []).length;
@@ -188,30 +204,41 @@ export async function POST(req){
             });
         }
         
-        // Step 3: Escape problematic characters before parsing
-        let escapedJsonContent = escapeProblematicJsonChars(jsonContent);
+        // Step 3: Fix basic structural issues first
+        let fixedJsonContent = fixJsonStructure(jsonContent);
         
-        // Step 4: Attempt to parse the escaped JSON
+        // Step 4: Escape problematic characters after fixing structure
+        let escapedJsonContent = escapeProblematicJsonChars(fixedJsonContent);
+        
+        // Step 5: Attempt to parse the fixed and escaped JSON
         let parsedResponse;
         try {
             parsedResponse = JSON.parse(escapedJsonContent);
         } catch (parseError) {
-            console.log('Initial JSON parse failed, attempting to fix structure...');
+            console.log('Initial JSON parse failed, attempting additional fixes...');
             
-            // Step 5: Try to fix basic structural issues and re-escape
-            const fixedJson = fixJsonStructure(jsonContent);
-            const escapedFixedJson = escapeProblematicJsonChars(fixedJson);
+            // Step 6: Try more aggressive fixes if the first attempt fails
+            let aggressivelyFixed = fixedJsonContent;
+            
+            // Remove any non-printable characters that might be causing issues
+            aggressivelyFixed = aggressivelyFixed.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+            
+            // Try to fix common JSON syntax errors
+            aggressivelyFixed = aggressivelyFixed.replace(/,(\s*[}\]])/g, '$1'); // Remove trailing commas
+            aggressivelyFixed = aggressivelyFixed.replace(/([}\]])(\s*)(["\w])/g, '$1,$2$3'); // Add missing commas between objects
+            
+            const reEscapedJson = escapeProblematicJsonChars(aggressivelyFixed);
             
             try {
-                parsedResponse = JSON.parse(escapedFixedJson);
-                console.log('Successfully parsed JSON after structural fixes and escaping');
+                parsedResponse = JSON.parse(reEscapedJson);
+                console.log('Successfully parsed JSON after aggressive fixes and escaping');
             } catch (secondParseError) {
-                console.error('Failed to parse JSON even after fixes and escaping');
+                console.error('Failed to parse JSON even after aggressive fixes and escaping');
                 console.error('Original error:', parseError.message);
                 console.error('Second error:', secondParseError.message);
-                console.error('Extracted JSON (first 200 chars):', jsonContent.substring(0, 200));
+                console.error('Original JSON (first 200 chars):', jsonContent.substring(0, 200));
+                console.error('Fixed JSON (first 200 chars):', fixedJsonContent.substring(0, 200));
                 console.error('Escaped JSON (first 200 chars):', escapedJsonContent.substring(0, 200));
-                console.error('Fixed and escaped JSON (first 200 chars):', escapedFixedJson.substring(0, 200));
                 
                 return NextResponse.json({
                     files: {},
