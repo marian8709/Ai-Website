@@ -135,11 +135,13 @@ function CodeView() {
                 }
             });
 
-            // Add environment-specific package.json or configuration files
+            // Add environment-specific configuration files
             const envConfig = EnvironmentConfig.ENVIRONMENTS[environment.toUpperCase()];
+            
             if (environment === 'react' && envConfig?.dependencies) {
+                // Add package.json for React projects
                 const packageJson = {
-                    name: "generated-project",
+                    name: "generated-react-project",
                     version: "1.0.0",
                     private: true,
                     dependencies: envConfig.dependencies,
@@ -150,6 +152,51 @@ function CodeView() {
                     }
                 };
                 zip.file("package.json", JSON.stringify(packageJson, null, 2));
+            } else if (environment === 'wordpress') {
+                // Add README for WordPress theme
+                const readmeContent = `# WordPress Theme
+
+## Installation
+1. Upload the theme folder to /wp-content/themes/
+2. Activate the theme in WordPress admin
+3. Customize through Appearance > Customize
+
+## Features
+- Responsive design
+- Custom post types support
+- SEO optimized
+- Widget ready
+
+## Requirements
+- WordPress 5.0+
+- PHP 7.4+
+`;
+                zip.file("README.md", readmeContent);
+                
+                // Add theme screenshot placeholder
+                zip.file("screenshot.png", ""); // Placeholder for theme screenshot
+            } else if (environment === 'html') {
+                // Add README for static website
+                const readmeContent = `# Static Website
+
+## Setup
+1. Extract files to your web server
+2. Open index.html in a web browser
+3. Customize as needed
+
+## Features
+- Responsive design
+- Modern CSS and JavaScript
+- Contact form with validation
+- Smooth scrolling navigation
+
+## Browser Support
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
+`;
+                zip.file("README.md", readmeContent);
             }
 
             // Generate the zip file
@@ -204,7 +251,40 @@ function CodeView() {
 
     const getSandpackDependencies = () => {
         const envConfig = EnvironmentConfig.ENVIRONMENTS[environment.toUpperCase()];
+        
+        // For WordPress and HTML, return empty dependencies since they don't use npm
+        if (environment === 'wordpress' || environment === 'html') {
+            return {};
+        }
+        
         return envConfig?.dependencies || Lookup.DEPENDANCY;
+    };
+
+    const getSandpackEntry = () => {
+        switch (environment) {
+            case 'react':
+                return '/index.js';
+            case 'html':
+            case 'wordpress':
+                return '/index.html';
+            default:
+                return '/index.js';
+        }
+    };
+
+    const getSandpackExternalResources = () => {
+        switch (environment) {
+            case 'html':
+                return [
+                    'https://cdn.tailwindcss.com',
+                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
+                ];
+            case 'wordpress':
+                return ['https://cdn.tailwindcss.com'];
+            case 'react':
+            default:
+                return ['https://cdn.tailwindcss.com'];
+        }
     };
 
     return (
@@ -243,12 +323,10 @@ function CodeView() {
                 theme={'dark'}
                 customSetup={{
                     dependencies: getSandpackDependencies(),
-                    entry: environment === 'react' ? '/index.js' : '/index.html'
+                    entry: getSandpackEntry()
                 }}
                 options={{
-                    externalResources: environment === 'html' || environment === 'wordpress' 
-                        ? ['https://cdn.tailwindcss.com'] 
-                        : [],
+                    externalResources: getSandpackExternalResources(),
                     bundlerTimeoutSecs: 120,
                     recompileMode: "immediate",
                     recompileDelay: 300
@@ -268,7 +346,7 @@ function CodeView() {
                             <>
                                 <SandpackPreview
                                     style={{ height: '80vh' }}
-                                    showNavigator={true}
+                                    showNavigator={environment !== 'wordpress'}
                                     showOpenInCodeSandbox={false}
                                     showRefreshButton={true}
                                 />
