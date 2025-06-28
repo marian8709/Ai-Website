@@ -9,7 +9,6 @@ import {
     SandpackFileExplorer
 } from "@codesandbox/sandpack-react";
 import Lookup from '@/data/Lookup';
-import EnvironmentConfig from '@/data/EnvironmentConfig';
 import { MessagesContext } from '@/context/MessagesContext';
 import axios from 'axios';
 import Prompt from '@/data/Prompt';
@@ -18,41 +17,30 @@ import { UpdateFiles } from '@/convex/workspace';
 import { useConvex, useMutation } from 'convex/react';
 import { useParams } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
-import { Loader2Icon, Download, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2Icon, Download } from 'lucide-react';
 import JSZip from 'jszip';
 
 function CodeView() {
 
     const { id } = useParams();
     const [activeTab, setActiveTab] = useState('code');
-    const [files, setFiles] = useState(Lookup?.DEFAULT_FILE);
-    const [environment, setEnvironment] = useState('react');
-    const { messages, setMessages } = useContext(MessagesContext);
-    const UpdateFiles = useMutation(api.workspace.UpdateFiles);
-    const convex = useConvex();
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    const [files,setFiles]=useState(Lookup?.DEFAULT_FILE);
+    const {messages,setMessages}=useContext(MessagesContext);
+    const UpdateFiles=useMutation(api.workspace.UpdateFiles);
+    const convex=useConvex();
+    const [loading,setLoading]=useState(false);
 
     useEffect(() => {
-        id && GetFiles();
+        id&&GetFiles();
     }, [id])
 
-    const GetFiles = async () => {
-        const result = await convex.query(api.workspace.GetWorkspace, {
-            workspaceId: id
+    const GetFiles=async()=>{
+        const result=await convex.query(api.workspace.GetWorkspace,{
+            workspaceId:id
         });
-        
-        // Set environment from workspace
-        const workspaceEnvironment = result?.environment || 'react';
-        setEnvironment(workspaceEnvironment);
-        
-        // Get default files for the environment
-        const envConfig = EnvironmentConfig.ENVIRONMENTS[workspaceEnvironment.toUpperCase()];
-        const defaultFiles = envConfig?.defaultFiles || Lookup.DEFAULT_FILE;
-        
         // Preprocess and validate files before merging
         const processedFiles = preprocessFiles(result?.fileData || {});
-        const mergedFiles = { ...defaultFiles, ...processedFiles };
+        const mergedFiles = {...Lookup.DEFAULT_FILE, ...processedFiles};
         setFiles(mergedFiles);
     }
 
@@ -75,105 +63,38 @@ function CodeView() {
     }
 
     useEffect(() => {
-        if (messages?.length > 0) {
-            const role = messages[messages?.length - 1].role;
-            if (role === 'user') {
-                GenerateAiCode();
-            }
-        }
-    }, [messages])
-
-    const GenerateAiCode = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const PROMPT = JSON.stringify(messages);
-            const result = await axios.post('/api/gen-ai-code', {
-                prompt: PROMPT,
-                environment: environment
-            });
-
-            // Check if the API returned an error
-            if (result.data?.error) {
-                console.error('AI Code generation error:', result.data.error);
-                
-                // Check if it's a quota error
-                if (result.data.error.includes('429') || result.data.error.includes('quota') || result.data.error.includes('exceeded')) {
-                    setError({
-                        type: 'quota',
-                        message: 'API quota exceeded. You have reached the daily limit for the free tier.',
-                        details: 'The Google Gemini API free tier allows 50 requests per day. Please wait 24 hours for the quota to reset, or upgrade your plan for higher limits.'
-                    });
-                } else {
-                    setError({
-                        type: 'api',
-                        message: 'AI service temporarily unavailable',
-                        details: result.data.error
-                    });
+            if (messages?.length > 0) {
+                const role = messages[messages?.length - 1].role;
+                if (role === 'user') {
+                    GenerateAiCode();
                 }
-                return;
             }
+        }, [messages])
 
-            // Ensure we have a files object, even if empty
-            const aiFiles = result.data?.files || {};
-            
-            // Preprocess AI-generated files
-            const processedAiFiles = preprocessFiles(aiFiles);
-            
-            // Get environment-specific default files
-            const envConfig = EnvironmentConfig.ENVIRONMENTS[environment.toUpperCase()];
-            const defaultFiles = envConfig?.defaultFiles || Lookup.DEFAULT_FILE;
-            
-            const mergedFiles = { ...defaultFiles, ...processedAiFiles };
-            setFiles(mergedFiles);
+    const GenerateAiCode=async()=>{
+        setLoading(true);
+        const PROMPT=JSON.stringify(messages)+" "+Prompt.CODE_GEN_PROMPT;
+        const result=await axios.post('/api/gen-ai-code',{
+            prompt:PROMPT
+        });
+        
+        // Preprocess AI-generated files
+        const processedAiFiles = preprocessFiles(result.data?.files || {});
+        const mergedFiles = {...Lookup.DEFAULT_FILE, ...processedAiFiles};
+        setFiles(mergedFiles);
 
-            // Only update files if we have valid file data
-            if (Object.keys(aiFiles).length > 0) {
-                await UpdateFiles({
-                    workspaceId: id,
-                    files: aiFiles
-                });
-            } else {
-                console.warn('No files generated by AI, skipping UpdateFiles call');
-            }
-        } catch (error) {
-            console.error('Error in GenerateAiCode:', error);
-            
-            // Handle different types of errors
-            if (error.response?.status === 429) {
-                setError({
-                    type: 'quota',
-                    message: 'API quota exceeded. You have reached the daily limit for the free tier.',
-                    details: 'The Google Gemini API free tier allows 50 requests per day. Please wait 24 hours for the quota to reset, or upgrade your plan for higher limits.'
-                });
-            } else if (error.response?.data?.error) {
-                setError({
-                    type: 'api',
-                    message: 'AI service error',
-                    details: error.response.data.error
-                });
-            } else {
-                setError({
-                    type: 'network',
-                    message: 'Network error occurred',
-                    details: 'Please check your internet connection and try again.'
-                });
-            }
-        } finally {
-            setLoading(false);
-        }
+        await UpdateFiles({
+            workspaceId:id,
+            files:result.data?.files
+        });
+        setLoading(false);
     }
-
-    const retryGeneration = () => {
-        setError(null);
-        GenerateAiCode();
-    };
-
+    
     const downloadFiles = async () => {
         try {
             // Create a new JSZip instance
             const zip = new JSZip();
-
+            
             // Add each file to the zip
             Object.entries(files).forEach(([filename, content]) => {
                 // Handle the file content based on its structure
@@ -197,78 +118,28 @@ function CodeView() {
                 }
             });
 
-            // Add environment-specific configuration files
-            const envConfig = EnvironmentConfig.ENVIRONMENTS[environment.toUpperCase()];
-            
-            if (environment === 'react' && envConfig?.dependencies) {
-                // Add package.json for React projects
-                const packageJson = {
-                    name: "generated-react-project",
-                    version: "1.0.0",
-                    private: true,
-                    dependencies: envConfig.dependencies,
-                    scripts: {
-                        "dev": "vite",
-                        "build": "vite build",
-                        "preview": "vite preview"
-                    }
-                };
-                zip.file("package.json", JSON.stringify(packageJson, null, 2));
-            } else if (environment === 'wordpress') {
-                // Add README for WordPress theme
-                const readmeContent = `# WordPress Theme
-
-## Installation
-1. Upload the theme folder to /wp-content/themes/
-2. Activate the theme in WordPress admin
-3. Customize through Appearance > Customize
-
-## Features
-- Responsive design
-- Custom post types support
-- SEO optimized
-- Widget ready
-
-## Requirements
-- WordPress 5.0+
-- PHP 7.4+
-`;
-                zip.file("README.md", readmeContent);
-                
-                // Add theme screenshot placeholder
-                zip.file("screenshot.png", ""); // Placeholder for theme screenshot
-            } else if (environment === 'html') {
-                // Add README for static website
-                const readmeContent = `# Static Website
-
-## Setup
-1. Extract files to your web server
-2. Open index.html in a web browser
-3. Customize as needed
-
-## Features
-- Responsive design
-- Modern CSS and JavaScript
-- Contact form with validation
-- Smooth scrolling navigation
-
-## Browser Support
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
-`;
-                zip.file("README.md", readmeContent);
-            }
+            // Add package.json with dependencies
+            const packageJson = {
+                name: "generated-project",
+                version: "1.0.0",
+                private: true,
+                dependencies: Lookup.DEPENDANCY,
+                scripts: {
+                    "dev": "vite",
+                    "build": "vite build",
+                    "preview": "vite preview"
+                }
+            };
+            zip.file("package.json", JSON.stringify(packageJson, null, 2));
 
             // Generate the zip file
             const blob = await zip.generateAsync({ type: "blob" });
-
+            
             // Create download link and trigger download
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${environment}-project-files.zip`;
+            a.download = 'project-files.zip';
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -278,416 +149,23 @@ function CodeView() {
         }
     };
 
-    const getEnvironmentBadge = () => {
-        const envColors = {
-            react: 'bg-blue-500/20 text-blue-400',
-            wordpress: 'bg-purple-500/20 text-purple-400',
-            html: 'bg-green-500/20 text-green-400'
-        };
-        
-        const envIcons = {
-            react: '⚛️',
-            wordpress: '📝',
-            html: '🌐'
-        };
-
-        return (
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${envColors[environment] || envColors.react}`}>
-                <span>{envIcons[environment] || envIcons.react}</span>
-                <span>{environment.toUpperCase()}</span>
-            </div>
-        );
-    };
-
-    const getSandpackTemplate = () => {
-        switch (environment) {
-            case 'react':
-                return 'react';
-            case 'html':
-            case 'wordpress':
-                return 'vanilla';
-            default:
-                return 'react';
-        }
-    };
-
-    const getSandpackDependencies = () => {
-        const envConfig = EnvironmentConfig.ENVIRONMENTS[environment.toUpperCase()];
-        
-        // For WordPress and HTML, return empty dependencies since they don't use npm
-        if (environment === 'wordpress' || environment === 'html') {
-            return {};
-        }
-        
-        return envConfig?.dependencies || Lookup.DEPENDANCY;
-    };
-
-    const getSandpackEntry = () => {
-        switch (environment) {
-            case 'react':
-                return '/index.js';
-            case 'html':
-                return '/index.html';
-            case 'wordpress':
-                return '/index.html'; // Use index.html for WordPress preview
-            default:
-                return '/index.js';
-        }
-    };
-
-    const getSandpackExternalResources = () => {
-        switch (environment) {
-            case 'html':
-                return [
-                    'https://cdn.tailwindcss.com',
-                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'
-                ];
-            case 'wordpress':
-                return ['https://cdn.tailwindcss.com'];
-            case 'react':
-            default:
-                return ['https://cdn.tailwindcss.com'];
-        }
-    };
-
-    // Enhanced WordPress preview conversion
-    const getWordPressPreviewFiles = () => {
-        if (environment !== 'wordpress') return files;
-
-        const previewFiles = { ...files };
-        
-        // Get WordPress files
-        const indexPhp = files['/index.php']?.code || '';
-        const headerPhp = files['/header.php']?.code || '';
-        const footerPhp = files['/footer.php']?.code || '';
-        const styleCss = files['/style.css']?.code || '';
-        const singlePhp = files['/single.php']?.code || '';
-        const pagePhp = files['/page.php']?.code || '';
-        const functionsPhp = files['/functions.php']?.code || '';
-        
-        // Create sample WordPress content
-        const samplePosts = [
-            {
-                title: "Welcome to Your WordPress Theme",
-                content: "This is a sample blog post to demonstrate how your WordPress theme looks. The theme includes modern styling, responsive design, and all the features you need for a professional website.",
-                author: "Admin",
-                date: "January 15, 2024",
-                category: "General"
-            },
-            {
-                title: "Another Sample Post",
-                content: "Here's another example of how your blog posts will appear. The theme supports featured images, categories, tags, and all standard WordPress functionality.",
-                author: "Editor",
-                date: "January 10, 2024",
-                category: "News"
-            }
-        ];
-
-        // Extract header content
-        let headerContent = headerPhp;
-        headerContent = headerContent.replace(/<\?php[\s\S]*?\?>/g, '');
-        headerContent = headerContent.replace(/wp_head\(\);?/g, '');
-        headerContent = headerContent.replace(/body_class\(\);?/g, 'class="wordpress-theme"');
-        headerContent = headerContent.replace(/language_attributes\(\);?/g, 'lang="en"');
-        headerContent = headerContent.replace(/bloginfo\(['"](.*?)['"]\);?/g, (match, p1) => {
-            if (p1 === 'charset') return 'UTF-8';
-            if (p1 === 'name') return 'Your WordPress Site';
-            if (p1 === 'description') return 'Just another WordPress site';
-            return 'WordPress Site';
-        });
-
-        // Extract footer content
-        let footerContent = footerPhp;
-        footerContent = footerContent.replace(/<\?php[\s\S]*?\?>/g, '');
-        footerContent = footerContent.replace(/wp_footer\(\);?/g, '');
-
-        // Process main content
-        let mainContent = indexPhp;
-        mainContent = mainContent.replace(/get_header\(\);?\s*\?>/g, '');
-        mainContent = mainContent.replace(/<\?php\s*get_footer\(\);?/g, '');
-        
-        // Replace WordPress loop with sample content
-        const loopRegex = /while\s*\(\s*have_posts\(\)\s*\)\s*:\s*the_post\(\);?([\s\S]*?)endwhile;?/g;
-        mainContent = mainContent.replace(loopRegex, () => {
-            return samplePosts.map(post => `
-                <article class="post-article">
-                    <header class="entry-header">
-                        <h1 class="entry-title">${post.title}</h1>
-                        <div class="entry-meta">
-                            <span class="posted-on">${post.date}</span>
-                            <span class="byline">by ${post.author}</span>
-                        </div>
-                    </header>
-                    <div class="entry-content">
-                        <p>${post.content}</p>
-                    </div>
-                    <footer class="entry-footer">
-                        <div class="categories">Categories: <span class="category">${post.category}</span></div>
-                    </footer>
-                </article>
-            `).join('');
-        });
-
-        // Replace common WordPress functions
-        mainContent = mainContent.replace(/<\?php[\s\S]*?\?>/g, '');
-        mainContent = mainContent.replace(/the_title\(\);?/g, 'Sample WordPress Post Title');
-        mainContent = mainContent.replace(/the_content\(\);?/g, 'This is sample content for your WordPress theme. The actual content will be managed through the WordPress admin panel.');
-        mainContent = mainContent.replace(/the_author\(\);?/g, 'Admin');
-        mainContent = mainContent.replace(/get_the_date\(\);?/g, 'January 15, 2024');
-        mainContent = mainContent.replace(/home_url\(['"]\/(.*?)['"]\);?/g, '#');
-        mainContent = mainContent.replace(/esc_url\((.*?)\);?/g, '#');
-        mainContent = mainContent.replace(/esc_html\((.*?)\);?/g, '$1');
-        
-        // Replace navigation menus
-        mainContent = mainContent.replace(/wp_nav_menu\([\s\S]*?\);?/g, `
-            <ul class="nav-menu">
-                <li><a href="#home">Home</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#services">Services</a></li>
-                <li><a href="#blog">Blog</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-        `);
-
-        // Create complete HTML preview
-        previewFiles['/index.html'] = {
-            code: `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WordPress Theme Preview</title>
-    <style>
-        /* WordPress Theme Styles */
-        ${styleCss}
-        
-        /* Additional preview styles */
-        .wordpress-theme {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        
-        .nav-menu {
-            display: flex;
-            list-style: none;
-            gap: 1rem;
-            margin: 0;
-            padding: 0;
-        }
-        
-        .nav-menu a {
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            transition: background-color 0.3s ease;
-        }
-        
-        .nav-menu a:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-        
-        .post-article {
-            margin-bottom: 2rem;
-            padding: 1.5rem;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-        
-        .entry-title {
-            margin-bottom: 1rem;
-            color: #2c3e50;
-        }
-        
-        .entry-meta {
-            color: #7f8c8d;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-        }
-        
-        .entry-content p {
-            line-height: 1.6;
-            margin-bottom: 1rem;
-        }
-        
-        .entry-footer {
-            border-top: 1px solid #eee;
-            padding-top: 1rem;
-            margin-top: 1rem;
-        }
-        
-        .category {
-            background: #3498db;
-            color: white;
-            padding: 0.2rem 0.5rem;
-            border-radius: 3px;
-            font-size: 0.8rem;
-        }
-        
-        /* Responsive design */
-        @media (max-width: 768px) {
-            .nav-menu {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-            
-            .post-article {
-                padding: 1rem;
-            }
-        }
-    </style>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="wordpress-theme">
-    ${headerContent}
-    
-    <main id="main" class="site-main">
-        ${mainContent}
-    </main>
-    
-    ${footerContent}
-    
-    <script>
-        // WordPress theme preview functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('WordPress Theme Preview Loaded');
-            
-            // Smooth scrolling for navigation
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    const target = document.querySelector(this.getAttribute('href'));
-                    if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth'
-                        });
-                    }
-                });
-            });
-            
-            // Add mobile menu toggle if needed
-            const menuToggle = document.querySelector('.menu-toggle');
-            const navMenu = document.querySelector('.nav-menu');
-            
-            if (menuToggle && navMenu) {
-                menuToggle.addEventListener('click', function() {
-                    navMenu.classList.toggle('active');
-                });
-            }
-            
-            // Simulate WordPress admin bar (optional)
-            const adminBar = document.createElement('div');
-            adminBar.style.cssText = \`
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 32px;
-                background: #23282d;
-                color: #eee;
-                font-size: 13px;
-                line-height: 32px;
-                padding: 0 20px;
-                z-index: 99999;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            \`;
-            adminBar.innerHTML = '🔧 WordPress Theme Preview Mode - This is how your theme will look';
-            document.body.insertBefore(adminBar, document.body.firstChild);
-            
-            // Adjust body padding for admin bar
-            document.body.style.paddingTop = '32px';
-        });
-    </script>
-</body>
-</html>`
-        };
-
-        return previewFiles;
-    };
-
-    const ErrorDisplay = ({ error, onRetry }) => {
-        const getErrorIcon = () => {
-            switch (error.type) {
-                case 'quota':
-                    return <AlertCircle className="h-8 w-8 text-yellow-500" />;
-                case 'api':
-                    return <AlertCircle className="h-8 w-8 text-red-500" />;
-                case 'network':
-                    return <AlertCircle className="h-8 w-8 text-orange-500" />;
-                default:
-                    return <AlertCircle className="h-8 w-8 text-gray-500" />;
-            }
-        };
-
-        const getErrorColor = () => {
-            switch (error.type) {
-                case 'quota':
-                    return 'border-yellow-200 bg-yellow-50';
-                case 'api':
-                    return 'border-red-200 bg-red-50';
-                case 'network':
-                    return 'border-orange-200 bg-orange-50';
-                default:
-                    return 'border-gray-200 bg-gray-50';
-            }
-        };
-
-        return (
-            <div className={`p-6 border rounded-lg ${getErrorColor()}`}>
-                <div className="flex items-start gap-4">
-                    {getErrorIcon()}
-                    <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                            {error.message}
-                        </h3>
-                        <p className="text-gray-700 mb-4">
-                            {error.details}
-                        </p>
-                        {error.type === 'quota' && (
-                            <div className="bg-white p-4 rounded border border-yellow-200 mb-4">
-                                <h4 className="font-medium text-gray-900 mb-2">Solutions:</h4>
-                                <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                                    <li>Wait 24 hours for the quota to reset</li>
-                                    <li>Upgrade to a paid Google Cloud plan for higher limits</li>
-                                    <li>Use a different API key if available</li>
-                                    <li>Consider using the existing code files for now</li>
-                                </ul>
-                            </div>
-                        )}
-                        {error.type !== 'quota' && (
-                            <button
-                                onClick={onRetry}
-                                className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
-                            >
-                                <RefreshCw className="h-4 w-4" />
-                                Try Again
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
     return (
         <div className='relative'>
             <div className='bg-[#181818] w-full p-2 border'>
                 <div className='flex items-center justify-between'>
-                    <div className='flex items-center gap-4'>
-                        <div className='flex items-center flex-wrap shrink-0 bg-black p-1 justify-center
-                        w-[140px] gap-3 rounded-full'>
-                            <h2 onClick={() => setActiveTab('code')}
-                                className={`text-sm cursor-pointer 
-                            ${activeTab == 'code' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
-                                Code</h2>
+                    <div className='flex items-center flex-wrap shrink-0 bg-black p-1 justify-center
+                    w-[140px] gap-3 rounded-full'>
+                        <h2 onClick={() => setActiveTab('code')}
+                            className={`text-sm cursor-pointer 
+                        ${activeTab == 'code' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
+                            Code</h2>
 
-                            <h2 onClick={() => setActiveTab('preview')}
-                                className={`text-sm cursor-pointer 
-                            ${activeTab == 'preview' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
-                                Preview</h2>
-                        </div>
-                        {getEnvironmentBadge()}
+                        <h2 onClick={() => setActiveTab('preview')}
+                            className={`text-sm cursor-pointer 
+                        ${activeTab == 'preview' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
+                            Preview</h2>
                     </div>
-
+                    
                     {/* Download Button */}
                     <button
                         onClick={downloadFiles}
@@ -698,56 +176,50 @@ function CodeView() {
                     </button>
                 </div>
             </div>
-
-            {/* Error Display */}
-            {error && (
-                <div className="p-4 bg-gray-900">
-                    <ErrorDisplay error={error} onRetry={retryGeneration} />
-                </div>
-            )}
-
-            <SandpackProvider
-                files={environment === 'wordpress' ? getWordPressPreviewFiles() : files}
-                template={getSandpackTemplate()}
-                theme={'dark'}
-                customSetup={{
-                    dependencies: getSandpackDependencies(),
-                    entry: getSandpackEntry()
-                }}
-                options={{
-                    externalResources: getSandpackExternalResources(),
-                    bundlerTimeoutSecs: 120,
-                    recompileMode: "immediate",
-                    recompileDelay: 300
-                }}
+            <SandpackProvider 
+            files={files}
+            template="react" 
+            theme={'dark'}
+            customSetup={{
+                dependencies: {
+                    ...Lookup.DEPENDANCY
+                },
+                entry: '/index.js'
+            }}
+            options={{
+                externalResources: ['https://cdn.tailwindcss.com'],
+                bundlerTimeoutSecs: 120,
+                recompileMode: "immediate",
+                recompileDelay: 300
+            }}
             >
                 <div className="relative">
                     <SandpackLayout>
-                        {activeTab == 'code' ? <>
+                        {activeTab=='code'?<>
                             <SandpackFileExplorer style={{ height: '80vh' }} />
-                            <SandpackCodeEditor
-                                style={{ height: '80vh' }}
-                                showTabs
-                                showLineNumbers
-                                showInlineErrors
-                                wrapContent />
-                        </> :
-                            <>
-                                <SandpackPreview
-                                    style={{ height: '80vh' }}
-                                    showNavigator={true}
-                                    showOpenInCodeSandbox={false}
-                                    showRefreshButton={true}
-                                />
-                            </>}
+                            <SandpackCodeEditor 
+                            style={{ height: '80vh' }}
+                            showTabs
+                            showLineNumbers
+                            showInlineErrors
+                            wrapContent />
+                        </>:
+                        <>
+                            <SandpackPreview 
+                                style={{ height: '80vh' }} 
+                                showNavigator={true}
+                                showOpenInCodeSandbox={false}
+                                showRefreshButton={true}
+                            />
+                        </>}
                     </SandpackLayout>
                 </div>
             </SandpackProvider>
 
-            {loading && <div className='p-10 bg-gray-900 opacity-80 absolute top-0 
+            {loading&&<div className='p-10 bg-gray-900 opacity-80 absolute top-0 
             rounded-lg w-full h-full flex items-center justify-center'>
-                <Loader2Icon className='animate-spin h-10 w-10 text-white' />
-                <h2 className='text-white'> Generating {environment.toUpperCase()} files...</h2>
+                <Loader2Icon className='animate-spin h-10 w-10 text-white'/>
+                <h2 className='text-white'> Generating files...</h2>
             </div>}
         </div>
     );
