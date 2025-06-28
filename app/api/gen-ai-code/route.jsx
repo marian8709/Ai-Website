@@ -146,30 +146,30 @@ export async function POST(req){
             // This regex matches backslashes that are NOT followed by valid JSON escape characters
             result = result.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
             
-            // Handle any remaining unescaped quotes within strings
-            // This is more complex as we need to track string boundaries
-            let finalResult = '';
-            let inString = false;
-            let i = 0;
-            
-            while (i < result.length) {
-                const char = result[i];
-                const prevChar = i > 0 ? result[i - 1] : '';
-                
-                if (char === '"' && prevChar !== '\\') {
-                    inString = !inString;
-                    finalResult += char;
-                } else if (inString && char === '"' && prevChar !== '\\') {
-                    // This is an unescaped quote within a string, escape it
-                    finalResult += '\\"';
-                } else {
-                    finalResult += char;
+            // Handle unescaped quotes within string values using a more robust approach
+            // This regex finds and escapes quotes that are not already escaped
+            // It uses negative lookbehind to avoid double-escaping
+            result = result.replace(/(?<!\\)"/g, function(match, offset, string) {
+                // Check if we're at the start/end of the string or if this is a structural quote
+                if (offset === 0 || offset === string.length - 1) {
+                    return match; // Keep structural quotes
                 }
                 
-                i++;
-            }
+                // Look for patterns that indicate this is a structural quote (property names, etc.)
+                const beforeChar = string[offset - 1];
+                const afterChar = string[offset + 1];
+                
+                // If preceded by { or , or : and followed by : or } or ,, it's likely structural
+                if ((beforeChar === '{' || beforeChar === ',' || beforeChar === ':' || beforeChar === '[') ||
+                    (afterChar === ':' || afterChar === '}' || afterChar === ',' || afterChar === ']')) {
+                    return match; // Keep structural quotes
+                }
+                
+                // Otherwise, escape it
+                return '\\"';
+            });
             
-            return finalResult;
+            return result;
         }
         
         // Step 1: Extract content from markdown if present
