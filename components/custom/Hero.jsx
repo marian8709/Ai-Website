@@ -22,12 +22,12 @@ function Hero() {
     useEffect(() => {
         const createParticles = () => {
             const newParticles = [];
-            for (let i = 0; i < 50; i++) {
+            for (let i = 0; i < 30; i++) {
                 newParticles.push({
                     id: i,
                     x: Math.random() * 100,
                     y: Math.random() * 100,
-                    size: Math.random() * 3 + 1,
+                    size: Math.random() * 2 + 1,
                     delay: Math.random() * 6,
                 });
             }
@@ -88,39 +88,30 @@ function Hero() {
         switch (selectedEnvironment) {
             case 'react':
                 return [
-                    'Create a modern e-commerce dashboard with React hooks',
-                    'Build a social media feed with infinite scrolling',
-                    'Develop a task management app with drag and drop',
-                    'Create a weather app with geolocation',
-                    'Build a music player with playlist management',
-                    'Develop a chat application with real-time messaging'
+                    'Create a modern e-commerce dashboard',
+                    'Build a social media feed',
+                    'Develop a task management app'
                 ];
             case 'wordpress':
                 return [
-                    'Create a custom WordPress blog theme',
-                    'Build a business website theme with contact forms',
-                    'Develop a portfolio theme for photographers',
-                    'Create an e-commerce theme with WooCommerce',
-                    'Build a news/magazine theme with custom post types',
-                    'Develop a restaurant theme with menu management'
+                    'Create a custom blog theme',
+                    'Build a business website theme',
+                    'Develop a portfolio theme'
                 ];
             case 'html':
                 return [
-                    'Create a responsive landing page for a startup',
-                    'Build a portfolio website with CSS animations',
-                    'Develop a restaurant website with online menu',
-                    'Create a corporate website with contact forms',
-                    'Build a photography portfolio with image gallery',
-                    'Develop a fitness website with class schedules'
+                    'Create a responsive landing page',
+                    'Build a portfolio website',
+                    'Develop a restaurant website'
                 ];
             default:
-                return Lookup.SUGGSTIONS;
+                return Lookup.SUGGSTIONS.slice(0, 3);
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 relative overflow-hidden">
-            {/* Animated Particles Background */}
+        <div className="min-h-[70vh] bg-slate-950 relative overflow-hidden">
+            {/* Minimal Particles Background */}
             <div className="particles absolute inset-0">
                 {particles.map((particle) => (
                     <div
@@ -137,168 +128,134 @@ function Hero() {
                 ))}
             </div>
 
-            {/* Enhanced Background Grid */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:40px_40px] opacity-20">
-                <div className="absolute left-1/2 top-0 h-[800px] w-[1200px] -translate-x-1/2 bg-[radial-gradient(circle_600px_at_50%_400px,rgba(34,211,238,0.15),transparent)]" />
-                <div className="absolute right-0 top-1/4 h-[600px] w-[800px] bg-[radial-gradient(circle_400px_at_80%_300px,rgba(6,182,212,0.1),transparent)]" />
-                <div className="absolute left-0 bottom-1/4 h-[500px] w-[600px] bg-[radial-gradient(circle_300px_at_20%_200px,rgba(8,145,178,0.08),transparent)]" />
+            {/* Simplified Background Grid */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:40px_40px] opacity-10">
+                <div className="absolute left-1/2 top-0 h-[400px] w-[800px] -translate-x-1/2 bg-[radial-gradient(circle_400px_at_50%_200px,rgba(34,211,238,0.1),transparent)]" />
             </div>
 
-            <div className="container mx-auto px-4 py-16 relative z-10">
-                <div className="flex flex-col items-center justify-center space-y-12">
-                    {/* Enhanced Hero Header */}
-                    <div className="text-center space-y-8 animate-slide-in-up">
-                        <div className="inline-flex items-center justify-center space-x-3 glass px-8 py-4 rounded-full mb-8 border border-cyan-400/30 hover-lift group">
-                            <div className="relative">
-                                <Sparkles className="h-6 w-6 text-cyan-400 group-hover:animate-spin transition-all duration-300" />
-                                <div className="absolute inset-0 bg-cyan-400 rounded-full blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
-                            </div>
-                            <span className="text-cyan-400 text-lg font-semibold tracking-wide">
+            <div className="container mx-auto px-4 py-8 relative z-10">
+                <div className="flex flex-col items-center justify-center space-y-8">
+                    {/* Compact Hero Header */}
+                    <div className="text-center space-y-4 animate-slide-in-up">
+                        <div className="inline-flex items-center justify-center space-x-2 glass px-4 py-2 rounded-full border border-cyan-400/30">
+                            <Sparkles className="h-4 w-4 text-cyan-400" />
+                            <span className="text-cyan-400 text-sm font-semibold tracking-wide">
                                 NEXT-GEN AI DEVELOPMENT
                             </span>
-                            <Zap className="h-5 w-5 text-cyan-400 animate-pulse" />
                         </div>
                         
-                        <div className="space-y-6">
-                            <h1 className="text-6xl md:text-8xl font-bold leading-tight">
-                                <span className="text-gradient neon-text animate-float">Code the</span>
-                                <br />
-                                <span className="text-gradient neon-text" style={{ animationDelay: '0.5s' }}>Impossible</span>
-                            </h1>
-                            
-                            <div className="flex items-center justify-center space-x-4 text-xl text-cyan-400 font-mono tracking-tight animate-slide-in-up" style={{ animationDelay: '0.3s' }}>
-                                <Code2 className="h-6 w-6 animate-pulse" />
-                                <span>Transform ideas into production-ready code</span>
-                                <Rocket className="h-6 w-6 animate-bounce" />
-                            </div>
+                        <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+                            <span className="text-gradient neon-text">Code the Impossible</span>
+                        </h1>
+                        
+                        <p className="text-lg text-cyan-400/80 font-mono tracking-tight">
+                            Transform ideas into production-ready code
+                        </p>
+                    </div>
+
+                    {/* Compact Environment Selector */}
+                    <div className="w-full max-w-2xl animate-slide-in-up" style={{ animationDelay: '0.3s' }}>
+                        <div className="text-center mb-4">
+                            <h3 className="text-lg font-semibold text-cyan-400 mb-2">
+                                Choose Development Environment
+                            </h3>
+                            <p className="text-gray-400 text-sm">
+                                Select the technology stack for your project
+                            </p>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-3">
+                            {Object.values(EnvironmentConfig.ENVIRONMENTS).map((env) => (
+                                <button
+                                    key={env.id}
+                                    onClick={() => setSelectedEnvironment(env.id)}
+                                    className={`group relative p-4 rounded-xl border-2 transition-all duration-300 ${
+                                        selectedEnvironment === env.id
+                                            ? 'border-cyan-400 bg-cyan-400/10 shadow-[0_0_20px_2px_rgba(34,211,238,0.3)]'
+                                            : 'border-cyan-400/20 glass-dark hover:border-cyan-400/40'
+                                    }`}
+                                >
+                                    <div className="text-center">
+                                        <div className="text-2xl mb-2">{env.icon}</div>
+                                        <h4 className={`text-sm font-semibold transition-colors duration-300 ${
+                                            selectedEnvironment === env.id
+                                                ? 'text-cyan-400'
+                                                : 'text-gray-300 group-hover:text-cyan-400'
+                                        }`}>
+                                            {env.name}
+                                        </h4>
+                                    </div>
+                                    
+                                    {selectedEnvironment === env.id && (
+                                        <div className="absolute top-1 right-1">
+                                            <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Enhanced Environment Selector */}
-                    <div className="animate-slide-in-up" style={{ animationDelay: '0.6s' }}>
-                        <EnvironmentSelector 
-                            selectedEnvironment={selectedEnvironment}
-                            onEnvironmentChange={setSelectedEnvironment}
-                        />
-                    </div>
-
-                    {/* Enhanced Input Section */}
-                    <div className="w-full max-w-4xl animate-slide-in-up" style={{ animationDelay: '0.9s' }}>
-                        <div className="glass-dark rounded-2xl border border-cyan-400/30 shadow-2xl hover:border-cyan-400/50 transition-all duration-300 overflow-hidden">
-                            <div className="p-2 bg-gradient-to-r from-cyan-500/10 to-blue-500/10">
-                                <div className="glass-dark p-8 rounded-xl">
-                                    <div className="flex gap-4">
-                                        <div className="flex-1 relative group">
-                                            <textarea
-                                                placeholder={`🚀 DESCRIBE YOUR ${selectedEnvironment.toUpperCase()} PROJECT...`}
-                                                value={userInput}
-                                                onChange={(e) => setUserInput(e.target.value)}
-                                                className="w-full bg-transparent border-2 border-cyan-400/30 rounded-xl p-6 text-gray-100 placeholder-cyan-400/60 focus:border-cyan-400 focus:ring-0 outline-none font-mono text-lg h-40 resize-none transition-all duration-300 hover:border-cyan-400/60 form-input custom-scrollbar"
-                                                disabled={isEnhancing}
-                                            />
-                                            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/5 to-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-                                        </div>
+                    {/* Compact Input Section */}
+                    <div className="w-full max-w-3xl animate-slide-in-up" style={{ animationDelay: '0.6s' }}>
+                        <div className="glass-dark rounded-xl border border-cyan-400/30 shadow-xl overflow-hidden">
+                            <div className="p-1 bg-gradient-to-r from-cyan-500/10 to-blue-500/10">
+                                <div className="glass-dark p-4 rounded-lg">
+                                    <div className="flex gap-3">
+                                        <textarea
+                                            placeholder={`🚀 Describe your ${selectedEnvironment.toUpperCase()} project...`}
+                                            value={userInput}
+                                            onChange={(e) => setUserInput(e.target.value)}
+                                            className="w-full bg-transparent border-2 border-cyan-400/30 rounded-lg p-4 text-gray-100 placeholder-cyan-400/60 focus:border-cyan-400 focus:ring-0 outline-none font-mono text-sm h-24 resize-none transition-all duration-300 form-input"
+                                            disabled={isEnhancing}
+                                        />
                                         
-                                        <div className="flex flex-col gap-3">
+                                        <div className="flex flex-col gap-2">
                                             {userInput && (
                                                 <>
                                                     <button
                                                         onClick={enhancePrompt}
                                                         disabled={isEnhancing}
-                                                        className={`group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 rounded-xl px-6 py-4 transition-all duration-300 hover-lift ${isEnhancing ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 rounded-lg px-3 py-3 transition-all duration-200 ${isEnhancing ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     >
-                                                        <div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
                                                         {isEnhancing ? (
-                                                            <Loader2 className="h-8 w-8 animate-spin relative z-10" />
+                                                            <Loader2 className="h-5 w-5 animate-spin" />
                                                         ) : (
-                                                            <Wand2 className="h-8 w-8 relative z-10 group-hover:animate-pulse" />
+                                                            <Wand2 className="h-5 w-5" />
                                                         )}
                                                     </button>
                                                     
                                                     <button
                                                         onClick={() => onGenerate(userInput)}
                                                         disabled={isEnhancing}
-                                                        className={`group relative overflow-hidden bg-turquoise-gradient hover:scale-105 rounded-xl px-6 py-4 transition-all duration-300 hover-lift animate-pulse-glow ${isEnhancing ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                        className={`group relative overflow-hidden bg-turquoise-gradient hover:scale-105 rounded-lg px-3 py-3 transition-all duration-200 animate-pulse-glow ${isEnhancing ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                     >
-                                                        <div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                                                        <Send className="h-8 w-8 relative z-10 group-hover:translate-x-1 transition-transform duration-200" />
+                                                        <Send className="h-5 w-5" />
                                                     </button>
                                                 </>
                                             )}
                                         </div>
                                     </div>
-                                    
-                                    <div className="flex justify-between items-center mt-6">
-                                        <div className="flex items-center space-x-2 text-cyan-400/60 text-sm">
-                                            <Link className="h-4 w-4" />
-                                            <span>AI-powered code generation</span>
-                                        </div>
-                                        <div className="flex items-center space-x-2 text-cyan-400/60 text-sm">
-                                            <span>Press Ctrl+Enter to generate</span>
-                                            <ArrowRight className="h-4 w-4" />
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Enhanced Suggestions Grid */}
-                    <div className="w-full max-w-6xl animate-slide-in-up" style={{ animationDelay: '1.2s' }}>
-                        <div className="text-center mb-8">
-                            <h3 className="text-2xl font-semibold text-cyan-400 mb-3 neon-text">
-                                {EnvironmentConfig.ENVIRONMENTS[selectedEnvironment.toUpperCase()]?.name} Project Ideas
-                            </h3>
-                            <p className="text-gray-400">Click any suggestion to get started instantly</p>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Compact Suggestions */}
+                    <div className="w-full max-w-4xl animate-slide-in-up" style={{ animationDelay: '0.9s' }}>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {getEnvironmentSuggestions().map((suggestion, index) => (
                                 <button
                                     key={index}
                                     onClick={() => onSuggestionClick(suggestion)}
-                                    className="group relative p-6 glass-dark hover:glass border-2 border-cyan-400/20 rounded-xl text-left transition-all duration-300 hover:border-cyan-400/40 hover-lift interactive-card"
-                                    style={{ animationDelay: `${index * 0.1}s` }}
+                                    className="group relative p-3 glass-dark border border-cyan-400/20 rounded-lg text-left transition-all duration-300 hover:border-cyan-400/40 hover-lift"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/5 to-blue-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
-                                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                        <ArrowRight className="h-5 w-5 text-cyan-400" />
-                                    </div>
-                                    <span className="text-cyan-400/80 group-hover:text-cyan-400 font-mono text-sm tracking-wide transition-colors duration-300 relative z-10">
+                                    <span className="text-cyan-400/80 group-hover:text-cyan-400 font-mono text-xs tracking-wide transition-colors duration-300">
                                         {suggestion}
                                     </span>
-                                    <div className="absolute bottom-0 left-0 h-1 bg-turquoise-gradient w-0 group-hover:w-full transition-all duration-500 rounded-b-xl" />
+                                    <div className="absolute bottom-0 left-0 h-0.5 bg-turquoise-gradient w-0 group-hover:w-full transition-all duration-300" />
                                 </button>
                             ))}
-                        </div>
-                    </div>
-
-                    {/* Enhanced Features Section */}
-                    <div className="w-full max-w-4xl mt-16 animate-slide-in-up" style={{ animationDelay: '1.5s' }}>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="text-center p-6 glass-dark rounded-xl border border-cyan-400/20 hover:border-cyan-400/40 transition-all duration-300 hover-lift">
-                                <div className="w-16 h-16 bg-turquoise-gradient rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-glow">
-                                    <Zap className="h-8 w-8 text-white" />
-                                </div>
-                                <h4 className="text-lg font-semibold text-cyan-400 mb-2">Lightning Fast</h4>
-                                <p className="text-gray-400 text-sm">Generate complete applications in seconds with AI</p>
-                            </div>
-                            
-                            <div className="text-center p-6 glass-dark rounded-xl border border-cyan-400/20 hover:border-cyan-400/40 transition-all duration-300 hover-lift" style={{ animationDelay: '0.2s' }}>
-                                <div className="w-16 h-16 bg-turquoise-gradient rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-glow">
-                                    <Code2 className="h-8 w-8 text-white" />
-                                </div>
-                                <h4 className="text-lg font-semibold text-cyan-400 mb-2">Production Ready</h4>
-                                <p className="text-gray-400 text-sm">Clean, optimized code following best practices</p>
-                            </div>
-                            
-                            <div className="text-center p-6 glass-dark rounded-xl border border-cyan-400/20 hover:border-cyan-400/40 transition-all duration-300 hover-lift" style={{ animationDelay: '0.4s' }}>
-                                <div className="w-16 h-16 bg-turquoise-gradient rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-glow">
-                                    <Rocket className="h-8 w-8 text-white" />
-                                </div>
-                                <h4 className="text-lg font-semibold text-cyan-400 mb-2">Multi-Platform</h4>
-                                <p className="text-gray-400 text-sm">React, WordPress, and static HTML support</p>
-                            </div>
                         </div>
                     </div>
                 </div>
